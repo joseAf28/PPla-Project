@@ -1,0 +1,4 @@
+% Number of tests       : 10
+% Number of machines    : 3
+% Number of resources   : 1
+% Maximum makespan      : 15
