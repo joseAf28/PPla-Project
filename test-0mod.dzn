@@ -1,7 +1,6 @@
 num_tests = 10;
 num_machines = 3;
 num_resources = 1;
-num_makespan = 12;
 
 durations = [2, 4, 3, 4, 3, 2, 1, 2, 3, 5];
 
