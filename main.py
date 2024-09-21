@@ -33,23 +33,23 @@ class Problem:
         
         matches = re.findall(pattern, input_string)
         
-        # Organizing the matches to get the arguments in the desired format
         arguments = []
         for match in matches:
-            if match[0]:  # It's a string argument
+            if match[0]:         # string argument
                 arguments.append(match[0])
-            elif match[1]:  # It's an integer argument
+            elif match[1]:      # integer argument
                 arguments.append(int(match[1]))
-            elif match[2]:  # It's a list argument
+            elif match[2]:      # list argument
                 list_items = [item.strip().strip("'") for item in match[2].split(",")]
                 arguments.append(list_items)
-            else:
+            else:               # empty argument
                 arguments.append(['e'])
+                
         return arguments
     
     
+    
     def read_input_data(self):
-        
         
         with open(self.input_file_name, 'r') as input_file:
             content = [line.rstrip() for line in input_file]
@@ -64,7 +64,7 @@ class Problem:
                 test_data.append(line)
             else:
                 print("Error: data not in correct format")
-        
+                
         
         commented_values = [int(commented_data[i].split(" ")[-1]) for i in range(len(commented_data))]
         tests_values = [Problem.create_pattern_read(test) for test in test_data]
@@ -73,7 +73,6 @@ class Problem:
         self.num_tests = commented_values[0]
         self.num_machines = commented_values[1]
         self.num_resources = commented_values[2]
-        self.num_makespan = commented_values[3]
         
         self.durations = [tests_values[i][1] for i in range(len(tests_values))]
         self.non_machine = [tests_values[i][2] for i in range(len(tests_values))]
@@ -98,13 +97,18 @@ class Problem:
             for j in range(self.num_resources):
                 if string_resources[j] in self.resources[i]:
                     self.matrix_resources[i][j] = True
+                    
+                    
+        print(self.matrix_machines_allowed)
+        print("\n")
+        print(self.matrix_resources)
     
     
     
     def load_model(self, solver_name="cbc"):
         
         ## load the model and the solver
-        model = Model('./machineScheduling.mzn')
+        model = Model('./model/machineScheduling.mzn')
         solver = Solver.lookup(solver_name)
         instance = Instance(solver, model)
         
@@ -112,7 +116,6 @@ class Problem:
         instance["num_tests"] = self.num_tests
         instance["num_machines"] = self.num_machines
         instance["num_resources"] = self.num_resources
-        instance["num_makespan"] = self.num_makespan
         
         instance["durations"] = self.durations
         instance["machine_allowed"] = self.matrix_machines_allowed
@@ -121,7 +124,7 @@ class Problem:
         ## solve the model
         self.result = instance.solve()
         
-        print(self.result["makespan"])
+        print(self.result)
     
     
     
@@ -143,6 +146,7 @@ if __name__ == "__main__":
     # print(problem.resources)
     # print(problem.commented_values)
     # print(problem.tests_values)
+    
     problem.load_model()
     
     # print(problem.input_file_name)
