@@ -6,16 +6,12 @@ int: num_machines; % Number of machines
 int: num_resources; % Number of global resources
 
 array[1..num_tests] of int: durations; % Duration of each test
-
 int: num_makespan = sum(i in 1..num_tests)(durations[i]); % Makespan estimate is the sum of all durations
 
 array[1..num_tests, 1..num_machines] of bool: machine_allowed; % machine_allowed[i,j] is 1 if test i can be assigned to machine j
-
 array[1..num_tests, 1..num_resources] of bool: resource_required; % resource_required[i,r] is True if test i requires resource r
+array[1..num_tests] of var 1..num_machines: machine_assigned; % machine_assigned[i] is the machine to which test i is assigned
 
-% Variables
-array[1..num_tests] of var 0..num_machines: machine_assigned; % machine_assigned[i] is the machine to which test i is assigned
-% LATER restrict the domain
 
 array[1..num_tests, 1..num_resources] of var bool: resource_used; % resource_used[i] indicates the resource for test i (if required)
 array[1..num_tests] of var 0..num_makespan: start; % Start time for each test
@@ -56,19 +52,15 @@ constraint
         (start[i] + durations[i] <= start[j] \/ start[j] + durations[j] <= start[i])
     );
 
-% Makespan is the end time of the last test
-% constraint
-%     forall(i in 1..num_tests) (
-%         makespan >= start[i] + durations[i]
-%     );
 
 constraint
     makespan = max([start[i] + durations[i] | i in 1..num_tests]);
 
-%% All the optimization is misssig 
+
+%%! All the optimization is misssig 
+%% tasks in the same machine and don't share resources can be ordered
+%% tasks that share resources can be ordered if they are similar (same duration, same machine and/or resources)
+%% restrictions on the domain of the variables
 
 % Objective: Minimize the makespan
 solve minimize makespan;
-
-
-% intervals cannot overlap
