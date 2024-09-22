@@ -75,40 +75,41 @@ class Problem:
         self.num_resources = commented_values[2]
         
         self.durations = [tests_values[i][1] for i in range(len(tests_values))]
-        self.non_machine = [tests_values[i][2] for i in range(len(tests_values))]
+        
+        self.machines = [tests_values[i][2] for i in range(len(tests_values))]
         self.resources = [tests_values[i][3] for i in range(len(tests_values))]
-    
+        
     
     
     def convert_input_model(self):
         
-        string_machines = [f"m{i+1}" for i in range(self.num_machines)]
-        string_resources = [f"r{i+1}" for i in range(self.num_resources)]
+        dictionaire_machines = {f"m{i+1}": i+1 for i in range(self.num_machines)}
+        dictionaire_resources = {f"r{i+1}": i for i in range(self.num_resources)}
         
-        self.matrix_machines_allowed = [[False for _ in range(self.num_machines)] for _ in range(self.num_tests)]
-        self.matrix_resources = [[False for _ in range(self.num_resources)] for _ in range(self.num_tests)]
+        setAllMachines = {i+1 for i in range( self.num_machines)}
+        self.machines_allowed = []
         
         for i in range(self.num_tests):
-            for j in range(self.num_machines):
-                if string_machines[j] in self.non_machine[i] or self.non_machine[i] == ['e']:
-                    self.matrix_machines_allowed[i][j] = True
+            if self.machines[i] == ['e']:
+                self.machines_allowed.append(setAllMachines) ## probably this ones is default, no need to add it
+            else:
+                self.machines_allowed.append({dictionaire_machines[machine] for machine in self.machines[i]})
+    
+        
+        self.resources_allowed = [ set() for _ in range(self.num_resources)]
+        self.have_resources = [False for _ in range(self.num_tests)]
         
         for i in range(self.num_tests):
             for j in range(self.num_resources):
-                if string_resources[j] in self.resources[i]:
-                    self.matrix_resources[i][j] = True
-                    
-                    
-        print(self.matrix_machines_allowed)
-        print("\n")
-        print(self.matrix_resources)
-    
-    
-    
+                if f'r{j+1}' in self.resources[i]:
+                    self.resources_allowed[j].add(i+1)
+                    self.have_resources[i] = True
+
+
     def load_model(self, solver_name="cbc"):
         
         ## load the model and the solver
-        model = Model('./model/machineScheduling.mzn')
+        model = Model('./model/machineScheduling2.mzn')
         solver = Solver.lookup(solver_name)
         instance = Instance(solver, model)
         
@@ -118,8 +119,10 @@ class Problem:
         instance["num_resources"] = self.num_resources
         
         instance["durations"] = self.durations
-        instance["machine_allowed"] = self.matrix_machines_allowed
-        instance["resource_required"] = self.matrix_resources
+        
+        instance["machines_allowed"] = self.machines_allowed
+        instance["resources_allowed"] = self.resources_allowed
+        instance["have_resources"] = self.have_resources
         
         ## solve the model
         self.result = instance.solve()
@@ -139,13 +142,6 @@ if __name__ == "__main__":
     problem = Problem.parse_instance()
     problem.read_input_data()
     problem.convert_input_model()
-    
-    # print(problem.input_file_name)
-    # print(problem.durations)
-    # print(problem.non_machine)
-    # print(problem.resources)
-    # print(problem.commented_values)
-    # print(problem.tests_values)
     
     problem.load_model()
     
