@@ -39,7 +39,7 @@ constraint
         resource_required[i,r] -> resource_used[i,r] = true
     );
 
-Tests cannot overlap on the same machine
+%Tests cannot overlap on the same machine
 constraint
     forall(i, j in 1..num_tests where i < j) (
         if machine_assigned[i] = machine_assigned[j] then

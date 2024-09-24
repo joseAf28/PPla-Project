@@ -1,0 +1,11 @@
+num_tests = 3;
+num_machines = 3;
+num_makespan = 20;
+
+
+durations = [2, 3, 2];
+
+n_s = 3;
+
+s_init_vec = [{6, 11}, {7}, {3}];
+s_end_vec = [{7, 20}, {20}, {20}];

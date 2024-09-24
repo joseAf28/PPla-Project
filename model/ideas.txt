@@ -1,0 +1,9 @@
+%%! Items to explore with the purpose of improving the model
+%% tasks in the same machine and don't share resources can be ordered
+%% tasks that share resources can be ordered if they are similar (same duration, same machine and/or resources)
+%% restrictions on the domain of the variables
+%% dominance empty spaces
+%% improve the estimation of the makespan
+
+
+%% decomposition heuristic

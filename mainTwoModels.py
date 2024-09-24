@@ -78,51 +78,79 @@ class Problem:
         
         self.machines = [tests_values[i][2] for i in range(len(tests_values))]
         self.resources = [tests_values[i][3] for i in range(len(tests_values))]
-        
     
     
-    def convert_input_model(self):
+    
+    def convert_input_models(self):
         
         dictionaire_machines = {f"m{i+1}": i+1 for i in range(self.num_machines)}
         dictionaire_resources = {f"r{i+1}": i for i in range(self.num_resources)}
         
         setAllMachines = {i+1 for i in range( self.num_machines)}
-        self.machines_allowed = []
         
+        self.machines_allowed = []
+    
         for i in range(self.num_tests):
             if self.machines[i] == ['e']:
                 self.machines_allowed.append(setAllMachines) ## probably this ones is default, no need to add it
             else:
                 self.machines_allowed.append({dictionaire_machines[machine] for machine in self.machines[i]})
-    
         
-        self.resources_allowed = [ set() for _ in range(self.num_resources)]
+        
+        self.resources_allowed = [ [] for _ in range(self.num_resources)]
         self.have_resources = [False for _ in range(self.num_tests)]
         
         for i in range(self.num_tests):
             for j in range(self.num_resources):
                 if f'r{j+1}' in self.resources[i]:
-                    self.resources_allowed[j].add(i+1)
+                    self.resources_allowed[j].append(i+1)
                     self.have_resources[i] = True
+        
+        
+        
+        ##! not including the tests that have resources
+        self.machine_restrictions = [True if (self.machines_allowed[i] != setAllMachines and self.have_resources[i] == False) else False for i in range(self.num_tests)]
+        
+        ## Input data for model A
+        self.tests_modelA = [i+1 for i in range(self.num_tests) if self.have_resources[i] == True] # true tests name
+        self.num_tests_modelA = len(self.tests_modelA)
+        
+        dictionaire_tests_modelA = {self.tests_modelA[i]:i+1  for i in range(self.num_tests_modelA)}
+        
+        self.durations_modelA = [self.durations[i-1] for i in self.tests_modelA]
+        
+        self.machines_allowed_modelA = [self.machines_allowed[i-1] for i in self.tests_modelA]
+        self.resources_allowed_modelA = [{dictionaire_tests_modelA[j] for j in self.resources_allowed[i]} for i in range(self.num_resources)]
+        
+        
+        ### conditions for the duration beginning 
+        
+        # self.have_resources_modelA = [self.have_resources[i-1] for i in self.tests_modelA]
+        
+        # print(self.tests_modelA)
+        # print(self.num_tests_modelA)
+        # print(dictionaire_tests_modelA)
+        # print(self.durations_modelA)
+        # print(self.machines_allowed_modelA)
+        # print(self.resources_allowed_modelA)
+        # print(self.have_resources_modelA)
 
-
-    def load_model(self, solver_name="cbc"):
+    def load_modelA(self, solver_name="cbc"):
         
         ## load the model and the solver
-        model = Model('./model/machineScheduling2.mzn')
+        model = Model('./model/machineScheduling21.mzn')
         solver = Solver.lookup(solver_name)
         instance = Instance(solver, model)
         
         ## load the data into the model
-        instance["num_tests"] = self.num_tests
+        instance["num_tests"] = self.num_tests_modelA
         instance["num_machines"] = self.num_machines
         instance["num_resources"] = self.num_resources
         
-        instance["durations"] = self.durations
+        instance["durations"] = self.durations_modelA
         
-        instance["machines_allowed"] = self.machines_allowed
-        instance["resources_allowed"] = self.resources_allowed
-        instance["have_resources"] = self.have_resources
+        instance["machines_allowed"] = self.machines_allowed_modelA
+        instance["resources_allowed"] = self.resources_allowed_modelA
         
         ## solve the model
         self.result = instance.solve()
@@ -137,13 +165,14 @@ class Problem:
         pass
 
 
+
 if __name__ == "__main__":
     
     problem = Problem.parse_instance()
     problem.read_input_data()
-    problem.convert_input_model()
+    problem.convert_input_models()
     
-    problem.load_model()
+    # problem.load_modelA()
     
     # print(problem.input_file_name)
     # print(problem.output_file_name)
