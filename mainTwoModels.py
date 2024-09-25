@@ -108,37 +108,51 @@ class Problem:
         
         
         
-        ##! not including the tests that have resources
-        self.machine_restrictions = [True if (self.machines_allowed[i] != setAllMachines and self.have_resources[i] == False) else False for i in range(self.num_tests)]
+        # ##! not including the tests that have resources
+        # self.machine_restrictions = [True if (self.machines_allowed[i] != setAllMachines and self.have_resources[i] == False) else False for i in range(self.num_tests)]
         
         ## Input data for model A
-        self.tests_modelA = [i+1 for i in range(self.num_tests) if self.have_resources[i] == True] # true tests name
+        # self.tests_modelA = [i+1 for i in range(self.num_tests) if (self.have_resources[i] == True or self.machines_allowed[i] != setAllMachines)] # true tests name
+        self.tests_modelA = [i+1 for i in range(self.num_tests) if self.have_resources[i] == True]
         self.num_tests_modelA = len(self.tests_modelA)
         
         dictionaire_tests_modelA = {self.tests_modelA[i]:i+1  for i in range(self.num_tests_modelA)}
         
         self.durations_modelA = [self.durations[i-1] for i in self.tests_modelA]
-        
         self.machines_allowed_modelA = [self.machines_allowed[i-1] for i in self.tests_modelA]
         self.resources_allowed_modelA = [{dictionaire_tests_modelA[j] for j in self.resources_allowed[i]} for i in range(self.num_resources)]
+        self.have_resources_modelA = [self.have_resources[i-1] for i in self.tests_modelA]
+        
+        print(self.tests_modelA)
+        print(self.num_tests_modelA)
+        print(dictionaire_tests_modelA)
+        print(self.durations_modelA)
+        print(self.machines_allowed_modelA)
+        print(self.resources_allowed_modelA)
+        print(self.have_resources_modelA)
         
         
-        ### conditions for the duration beginning 
+        self.tests_unique_machines_no_resources = [i+1 for i in range(self.num_tests) if (self.have_resources[i] == False and len(self.machines_allowed[i]) == 1)]
         
-        # self.have_resources_modelA = [self.have_resources[i-1] for i in self.tests_modelA]
+        self.offset_machine = [set() for _ in range(self.num_machines)]
+        for test in self.tests_unique_machines_no_resources:
+            print(self.machines_allowed[test-1])
+            self.offset_machine[list(self.machines_allowed[test-1])[0]-1].add(self.durations[test-1])
         
-        # print(self.tests_modelA)
-        # print(self.num_tests_modelA)
-        # print(dictionaire_tests_modelA)
-        # print(self.durations_modelA)
-        # print(self.machines_allowed_modelA)
-        # print(self.resources_allowed_modelA)
-        # print(self.have_resources_modelA)
+        self.offset_machine = [sum(offset) for offset in self.offset_machine]
+        self.offset_which_machine = [i+1 if self.offset_machine[i] > 0 else 0 for i in range(self.num_machines)]
+        
+        print()
+        print(self.tests_unique_machines_no_resources)
+        print(self.offset_machine)
+        print(self.offset_which_machine)
+        print()
+
 
     def load_modelA(self, solver_name="cbc"):
         
         ## load the model and the solver
-        model = Model('./model/machineScheduling21.mzn')
+        model = Model('./model/modelA.mzn')
         solver = Solver.lookup(solver_name)
         instance = Instance(solver, model)
         
@@ -151,11 +165,20 @@ class Problem:
         
         instance["machines_allowed"] = self.machines_allowed_modelA
         instance["resources_allowed"] = self.resources_allowed_modelA
+        instance["have_resources"] = self.have_resources_modelA
+        
+        instance["offset_machine"] = self.offset_machine
+        instance["offset_which_machine"] = self.offset_which_machine
         
         ## solve the model
         self.result = instance.solve()
         
         print(self.result)
+        
+        
+        self.makespan_A = self.result["makespan"]
+        self.machines_assigned_A = self.result["machines_assigned"]
+        self.start_times_A = self.result["start_times"]
     
     
     
@@ -172,7 +195,7 @@ if __name__ == "__main__":
     problem.read_input_data()
     problem.convert_input_models()
     
-    # problem.load_modelA()
+    problem.load_modelA()
     
     # print(problem.input_file_name)
     # print(problem.output_file_name)

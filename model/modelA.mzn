@@ -14,11 +14,15 @@ int: num_resources; % Number of global resources
 array[1..num_tests] of int: durations;                         % Duration of each global test
 
 int: num_makespan = sum(i in 1..num_tests)(durations[i]);      % Makespan estimate: all tests occur in the same machine
+% possible conflict with the makespan
 
 array[1..num_tests] of set of int: machines_allowed;            % ex: [{1, 2}, {1, 2, 3}, {3}, .. ]
 array[1..num_resources] of set of int: resources_allowed;       % (t)[{1, 2, 5}, {5, 7}, ..., {9}]
 
 array[1..num_tests] of bool: have_resources;
+
+array[1..num_machines] of int: offset_machine;
+array[1..num_machines] of int: offset_which_machine;
 
 %% output the tests that have global resources
 array[1..num_tests] of var 1..num_machines: machine_assigned;  % machine_assigned[i] is the machine to which test i is assigned
@@ -29,9 +33,7 @@ var 0..num_makespan: makespan; % The makespan (time when the last test finishes)
 
 
 predicate exclusive(set of int: s) =
-    let {array[int] of var int: x = [start[i] | i in s],
-        array[int] of  int : d = [durations[i] | i in s]} in
-    disjunctive(x, d);
+    disjunctive([start[i] | i in s], [durations[i] | i in s]);
 
 
 % Constraints
@@ -41,25 +43,34 @@ constraint
             machine_assigned[i] in machines_allowed[i]
         );
 
+
 % Global resources: tests cannot overlap on the same resource
-% disjunctive constraint
 constraint
     forall(r in 1..num_resources)(exclusive(resources_allowed[r]));
 
 
-% tests cannot overlap in the same machine
-constraint
-    forall(i, j in 1..num_tests where i < j) (
-        if machine_assigned[i] = machine_assigned[j] /\ have_resources[i] = false /\ have_resources[j] = false  then
-            start[i] + durations[i] <= start[j]
-        elseif machine_assigned[i] = machine_assigned[j] then
-            (start[i] + durations[i] <= start[j] \/ start[j] + durations[j] <= start[i])
-        else
+constraint forall(i in 1..num_tests, m in 1..num_machines)(
+            if machine_assigned[i] == offset_which_machine[m] then 
+                start[i] >= offset_machine[m]
+            else
             true
-        endif
-    );
+            endif
+        );       
 
 
+
+% tests cannot overlap in the same machine, not used as we only consider the restriction in which the tests can be assigned to a single machine
+% possible problem if all machines have a restriction
+% constraint
+%     forall(i, j in 1..num_tests where i < j) (
+%         if machine_assigned[i] = machine_assigned[j] /\ have_resources[i] = false /\ have_resources[j] = false  then
+%             start[i] + durations[i] <= start[j]
+%         elseif machine_assigned[i] = machine_assigned[j] then
+%             (start[i] + durations[i] <= start[j] \/ start[j] + durations[j] <= start[i])
+%         else
+%             true
+%         endif
+%     );
 
 constraint
     makespan = max([start[i] + durations[i] | i in 1..num_tests]);

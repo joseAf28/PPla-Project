@@ -29,8 +29,8 @@ array[1..n_s] of set of int: s_end_vec;
 % Tests cannot overlap in the same machine
 constraint
     forall(i, j in 1..num_tests where i < j) (
-        if machine_assigned[i] = machine_assigned[j]  then
-            start[i] + durations[i] <= start[j]
+        if machine_assigned[i] == machine_assigned[j]  then
+            start[i] + durations[i] <= start[j] \/ start[j] + durations[j] <= start[i]
         else
             true
         endif
@@ -39,13 +39,13 @@ constraint
 
 constraint
     forall(i in 1..num_tests, m in 1..num_machines) (
-        if machine_assigned[i] = m then 
+        if machine_assigned[i] == m then 
                     
             let {
             
             int: len = card(s_init_vec[i]),
-            array[1..len] of int: s_init_ordered = [e | e in s_init_vec[i]],
-            array[1..len] of int: s_end_ordered = [e | e in s_end_vec[i]]
+            array[1..len] of int: s_init_ordered = [e | e in s_init_vec[m]],
+            array[1..len] of int: s_end_ordered = [e | e in s_end_vec[m]]
 
             } in
             exists(s in 1..len)(start[i] >= s_init_ordered[s] /\ start[i] + durations[i] <= s_end_ordered[s])
@@ -56,6 +56,7 @@ constraint
         
         
 
+%% pseudo-makespan: the quantity of interest is the mininum between this and the model A makespan
 constraint
     makespan = max([start[i] + durations[i] | i in 1..num_tests]);
 
