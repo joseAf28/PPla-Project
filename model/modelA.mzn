@@ -78,4 +78,13 @@ constraint
 
 
 % Objective: Minimize the makespan
+% solve :: int_search(start, first_fail, indomain_min, complete) minimize makespan;
+
 solve minimize makespan;
+
+
+%% modelA also fails to solve the problem when the number of resources inscreases a lot
+%% - grouping resources in a single set
+
+
+%% think about the symmetry breaking of the machines

@@ -1,7 +1,8 @@
 import sys
 import re
 from minizinc import Instance, Model, Solver
-
+import time
+import itertools
 
 class Problem:
     
@@ -80,13 +81,51 @@ class Problem:
         self.resources = [tests_values[i][3] for i in range(len(tests_values))]
     
     
+    @staticmethod
+    def filter_sets(array_of_sets):
+        # Remove duplicates by converting sets to frozensets and using a set comprehension
+        unique_sets = list(set(frozenset(s) for s in array_of_sets))
+
+        # Sort sets by length in descending order to handle larger sets first
+        unique_sets.sort(key=len, reverse=True)
+
+        filtered_sets = []
+        seen_sets = set()  # To keep track of sets we have already added
+
+        for s in unique_sets:
+            # Check if the current set `s` is a subset of any set already in `filtered_sets`
+            if not any(s < existing_set for existing_set in filtered_sets):
+                filtered_sets.append(s)
+                seen_sets.add(s)
+
+        # Convert frozensets back to regular sets for the final result
+        return [set(s) for s in filtered_sets]
+
+    @staticmethod
+    def common_elements_sets(sets_array):
+        
+        # Check all pairs of sets
+        # Variable to store the maximum size of the intersection
+        max_intersection_size = 0
+
+        # Iterate over all combinations of the sets (at least 2 sets)
+        for r in range(2, len(sets_array) + 1):
+            for comb in itertools.combinations(sets_array, r):
+                # Find the intersection of the current combination of sets
+                intersection = set.intersection(*comb)
+                # Update the maximum size if the current intersection is larger
+                max_intersection_size = max(max_intersection_size, len(intersection))
+
+        
+        return intersection
+    
     
     def convert_input_models(self):
         
         dictionaire_machines = {f"m{i+1}": i+1 for i in range(self.num_machines)}
         dictionaire_resources = {f"r{i+1}": i for i in range(self.num_resources)}
         
-        setAllMachines = {i+1 for i in range( self.num_machines)}
+        setAllMachines = {i+1 for i in range(self.num_machines)}
         
         self.machines_allowed = []
     
@@ -121,32 +160,55 @@ class Problem:
         self.durations_modelA = [self.durations[i-1] for i in self.tests_modelA]
         self.machines_allowed_modelA = [self.machines_allowed[i-1] for i in self.tests_modelA]
         self.resources_allowed_modelA = [{dictionaire_tests_modelA[j] for j in self.resources_allowed[i]} for i in range(self.num_resources)]
-        self.have_resources_modelA = [self.have_resources[i-1] for i in self.tests_modelA]
+        self.resources_effective_modelA = Problem.filter_sets(self.resources_allowed_modelA)
         
-        print(self.tests_modelA)
-        print(self.num_tests_modelA)
-        print(dictionaire_tests_modelA)
-        print(self.durations_modelA)
-        print(self.machines_allowed_modelA)
-        print(self.resources_allowed_modelA)
-        print(self.have_resources_modelA)
+        self.num_resources_effective = len(self.resources_effective_modelA)
+        
+        self.have_resources_modelA = [self.have_resources[i-1] for i in self.tests_modelA]
         
         
         self.tests_unique_machines_no_resources = [i+1 for i in range(self.num_tests) if (self.have_resources[i] == False and len(self.machines_allowed[i]) == 1)]
         
         self.offset_machine = [set() for _ in range(self.num_machines)]
         for test in self.tests_unique_machines_no_resources:
-            print(self.machines_allowed[test-1])
+            # print(self.machines_allowed[test-1])
             self.offset_machine[list(self.machines_allowed[test-1])[0]-1].add(self.durations[test-1])
         
         self.offset_machine = [sum(offset) for offset in self.offset_machine]
         self.offset_which_machine = [i+1 if self.offset_machine[i] > 0 else 0 for i in range(self.num_machines)]
         
-        print()
-        print(self.tests_unique_machines_no_resources)
-        print(self.offset_machine)
-        print(self.offset_which_machine)
-        print()
+        
+        
+        self.tests_no_model_A = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
+        
+        self.tests_restriction_machine_no_model_A = [i+1 for i in range(self.num_tests) if (i+1 in self.tests_no_model_A and len(self.machines_allowed[i]) != self.num_machines)]
+        self.machines_restriction_no_model_A = set.union(*[self.machines_allowed[i-1] for i in self.tests_restriction_machine_no_model_A])
+        # print()
+        # print(self.tests_unique_machines_no_resources)
+        # print(self.offset_machine)
+        # print(self.offset_which_machine)
+        # print()
+        print(self.tests_no_model_A)
+        print(self.tests_restriction_machine_no_model_A)
+        print(self.machines_restriction_no_model_A)
+        # print("machines")
+        # print(self.machines_allowed_modelA)
+        
+        # self.machines_effective_per_resource = [[self.machines_allowed_modelA[i-1] for i in self.resources_effective_modelA[j]] for j in range(self.num_resources_effective)]
+        
+        # # print(self.machines_effective_per_resource[0])
+        
+        # self.machines_effective_per_resource_common = [Problem.common_elements_sets(self.machines_effective_per_resource[i]) for i in range(self.num_resources_effective)]
+        
+        # union_machines_effective_per_resource_common = set.union(*self.machines_effective_per_resource_common) - self.machines_restriction_no_model_A
+        
+        # print("union: ", union_machines_effective_per_resource_common)
+        
+        # print()
+        # print(self.machines_effective_per_resource_common)
+        # print()
+        # print(self.resources_allowed_modelA)
+        # print(Problem.filter_sets(self.resources_allowed_modelA))
 
 
     def load_modelA(self, solver_name="cbc"):
@@ -159,12 +221,12 @@ class Problem:
         ## load the data into the model
         instance["num_tests"] = self.num_tests_modelA
         instance["num_machines"] = self.num_machines
-        instance["num_resources"] = self.num_resources
+        instance["num_resources"] = self.num_resources_effective
         
         instance["durations"] = self.durations_modelA
         
         instance["machines_allowed"] = self.machines_allowed_modelA
-        instance["resources_allowed"] = self.resources_allowed_modelA
+        instance["resources_allowed"] = self.resources_effective_modelA
         instance["have_resources"] = self.have_resources_modelA
         
         instance["offset_machine"] = self.offset_machine
@@ -177,8 +239,8 @@ class Problem:
         
         
         self.makespan_A = self.result["makespan"]
-        self.machines_assigned_A = self.result["machines_assigned"]
-        self.start_times_A = self.result["start_times"]
+        self.machines_assigned_A = self.result["machine_assigned"]
+        self.start_times_A = self.result["start"]
     
     
     
@@ -191,11 +253,18 @@ class Problem:
 
 if __name__ == "__main__":
     
+    time_start = time.time()
+    
     problem = Problem.parse_instance()
     problem.read_input_data()
     problem.convert_input_models()
     
-    problem.load_modelA()
+    # problem.load_modelA()
+    
+    
+    time_end = time.time()
+    
+    print(f"Time: {time_end - time_start}")
     
     # print(problem.input_file_name)
     # print(problem.output_file_name)
