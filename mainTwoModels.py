@@ -101,6 +101,7 @@ class Problem:
         # Convert frozensets back to regular sets for the final result
         return [set(s) for s in filtered_sets]
 
+
     @staticmethod
     def common_elements_sets(sets_array):
         
@@ -178,22 +179,14 @@ class Problem:
         self.offset_which_machine = [i+1 if self.offset_machine[i] > 0 else 0 for i in range(self.num_machines)]
         
         
+        ## Ideas that seem not to improve the efficiency
+        # self.test_resources_modelA_no_restriction_machines = set(i+1 for i in range(self.num_tests_modelA) if len(self.machines_allowed_modelA[i]) == self.num_machines)
+        # print(self.test_resources_modelA_no_restriction_machines)
         
-        self.tests_no_model_A = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
+        # self.tests_no_model_A = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
         
-        self.tests_restriction_machine_no_model_A = [i+1 for i in range(self.num_tests) if (i+1 in self.tests_no_model_A and len(self.machines_allowed[i]) != self.num_machines)]
-        self.machines_restriction_no_model_A = set.union(*[self.machines_allowed[i-1] for i in self.tests_restriction_machine_no_model_A])
-        # print()
-        # print(self.tests_unique_machines_no_resources)
-        # print(self.offset_machine)
-        # print(self.offset_which_machine)
-        # print()
-        print(self.tests_no_model_A)
-        print(self.tests_restriction_machine_no_model_A)
-        print(self.machines_restriction_no_model_A)
-        # print("machines")
-        # print(self.machines_allowed_modelA)
-        
+        # self.tests_restriction_machine_no_model_A = [i+1 for i in range(self.num_tests) if (i+1 in self.tests_no_model_A and len(self.machines_allowed[i]) != self.num_machines)]
+        # self.machines_restriction_no_model_A = set.union(*[self.machines_allowed[i-1] for i in self.tests_restriction_machine_no_model_A])
         # self.machines_effective_per_resource = [[self.machines_allowed_modelA[i-1] for i in self.resources_effective_modelA[j]] for j in range(self.num_resources_effective)]
         
         # # print(self.machines_effective_per_resource[0])
@@ -203,13 +196,7 @@ class Problem:
         # union_machines_effective_per_resource_common = set.union(*self.machines_effective_per_resource_common) - self.machines_restriction_no_model_A
         
         # print("union: ", union_machines_effective_per_resource_common)
-        
-        # print()
-        # print(self.machines_effective_per_resource_common)
-        # print()
-        # print(self.resources_allowed_modelA)
-        # print(Problem.filter_sets(self.resources_allowed_modelA))
-
+    
 
     def load_modelA(self, solver_name="cbc"):
         
@@ -232,15 +219,79 @@ class Problem:
         instance["offset_machine"] = self.offset_machine
         instance["offset_which_machine"] = self.offset_which_machine
         
+        # instance["test_resources_no_restriction_machines"] = self.test_resources_modelA_no_restriction_machines
+        
         ## solve the model
         self.result = instance.solve()
-        
         print(self.result)
-        
-        
+    
+    
+    def input_data_model_B(self):
+    
         self.makespan_A = self.result["makespan"]
         self.machines_assigned_A = self.result["machine_assigned"]
         self.start_times_A = self.result["start"]
+        
+        
+        print(self.machines_assigned_A)
+        print(self.start_times_A)
+        print(self.makespan_A)
+        
+        
+        
+        ## list tests with machine restrictions and not included in model A
+        self.tests_modelB = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
+        # self.tests_modelB_restrictions = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA and len(self.machines_allowed[i]) != self.num_machines]
+        
+        self.num_tests_modelB = len(self.tests_modelB)
+        
+        self.durations_modelB = [self.durations[i-1] for i in self.tests_modelB]
+        self.machines_allowed_modelB = [self.machines_allowed[i-1] for i in self.tests_modelB]
+        
+        ## intial times of tests from model A 
+        self.s_init_vec = self.start_times_A
+        self.s_end_vec = [self.start_times_A[i] + self.durations_modelA[i] for i in range(self.num_tests_modelA)]
+        self.n_s = self.num_tests_modelA
+        
+        # ## machines assignes model A
+        # self.machines_assigned_A = [self.machines_assigned_A[i-1] for i in self.tests_modelA]
+        
+        
+        print(self.tests_modelB)
+        # print(self.tests_modelB_restrictions)
+        print(self.durations_modelB)
+        print(self.machines_allowed_modelB)
+        
+        print(self.s_init_vec)
+        print(self.s_end_vec)
+        print(self.machines_assigned_A)
+        
+        # print(self.machines_assigned_A)
+    
+    def load_modelB(self, solver_name="cbc"):
+        
+        ## load the model and the solver
+        model = Model('./model/modelB.mzn')
+        solver = Solver.lookup(solver_name)
+        instance = Instance(solver, model)
+        
+        ## load the data into the model
+        instance["num_tests_A"] = self.num_tests_modelA
+        instance["num_tests"] = self.num_tests_modelB
+        instance["num_machines"] = self.num_machines
+        
+        instance["durations"] = self.durations_modelB
+        instance["machines_allowed"] = self.machines_allowed_modelB
+        
+        instance["s_init_vec"] = self.s_init_vec
+        instance["s_end_vec"] = self.s_end_vec
+        instance["n_s"] = self.n_s
+        
+        instance["machines_assigned_A"] = self.machines_assigned_A
+        
+        ## solve the model
+        self.result = instance.solve()
+        print(self.result)
     
     
     
@@ -259,7 +310,11 @@ if __name__ == "__main__":
     problem.read_input_data()
     problem.convert_input_models()
     
-    # problem.load_modelA()
+    problem.load_modelA()
+    
+    problem.input_data_model_B()
+    
+    problem.load_modelB()
     
     
     time_end = time.time()

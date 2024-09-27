@@ -24,6 +24,9 @@ array[1..num_tests] of bool: have_resources;
 array[1..num_machines] of int: offset_machine;
 array[1..num_machines] of int: offset_which_machine;
 
+
+% set of int: test_resources_no_restriction_machines;
+
 %% output the tests that have global resources
 array[1..num_tests] of var 1..num_machines: machine_assigned;  % machine_assigned[i] is the machine to which test i is assigned
 array[1..num_tests] of var 0..num_makespan: start;             % Start time for each test
@@ -57,6 +60,7 @@ constraint forall(i in 1..num_tests, m in 1..num_machines)(
             endif
         );       
 
+% constraint forall(i in 1..num_tests-1)(machine_assigned[i] <= machine_assigned[i+1]);
 
 
 % tests cannot overlap in the same machine, not used as we only consider the restriction in which the tests can be assigned to a single machine
