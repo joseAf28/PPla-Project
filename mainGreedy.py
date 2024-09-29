@@ -334,44 +334,160 @@ class Problem:
             group = sorted(group, key=lambda x: x[0])
             new_sorted_data.append(group)
         
+        
         self.max_number = 100000  ##! maximum size number for now
         
         
-        
-        find_gaps = []
+        ##! create the list of the available machines and their free time
+        machine_availability = []
         for group in new_sorted_data:
+            
+            ###! find the free slots between the ordered assigned tasks
             for i in range(len(group)-1):
                 if group[i][1] != group[i+1][0]:
-                    find_gaps.append((group[i][1], group[i+1][0], group[i][2]))
-        
+                    machine_availability.append((group[i][1], group[i+1][0], group[i][2]))
+                else:
+                    pass
+            
             if len(group) == 1 and group[0][0] != 0:
-                find_gaps.append((0, group[0][0], group[0][2]))
-                find_gaps.append((group[0][1], self.max_number, group[0][2])) ## 9999 not important
+                machine_availability.append((0, group[0][0], group[0][2]))
+                machine_availability.append((group[0][1], self.max_number, group[0][2])) ## 9999 not important
             elif len(group) == 1 and group[0][0] == 0:
-                find_gaps.append((group[0][1], self.max_number, group[0][2])) ## 9999 not important
+                machine_availability.append((group[0][1], self.max_number, group[0][2])) ## 9999 not important
             else:
-                find_gaps.append((group[-1][1], self.max_number, group[-1][2]))
-        
-        machine_availability = {machine: [] for machine in range(1, self.num_machines+1)}
-        
-        for gap in find_gaps:
-            machine_availability[gap[2]].append(gap)
-        
-        ## insert the remaining available time for each machine
-        for machine in machine_availability:
-            if len(machine_availability[machine]) == 0:
-                machine_availability[machine].append((0, self.max_number, machine))
+                machine_availability.append((group[-1][1], self.max_number, group[-1][2]))
         
         
-        print("machine_availability: ", machine_availability)
+        ##! add the machines that have not been assigned any task: they are available from the beginning till the end
+        for i in range(1, self.num_machines+1):
+            if not any(machine[2] == i for machine in machine_availability):
+                machine_availability.append((0, self.max_number, i))
         
-        ## assign tests with restrions fisrst
         
-        tasks_machine_restrictions_modelB = [ {'id': number, 'duration': duration, 'machines': machines} for number, duration, machines in zip(self.tests_modelB, self.durations_modelB, self.machines_allowed_modelB) if len(machines) != self.num_machines]
-        tasks_machine_no_restrictions_modelB = [ {'id': number, 'duration': duration, 'machines': machines} for number, duration, machines in zip(self.tests_modelB, self.durations_modelB, self.machines_allowed_modelB) if len(machines) == self.num_machines]
+        ##! list of tasks, its id, duration and machines allowed that are up to be assigned
+        tasks_modelB = [ {'id': number, 'duration': duration, 'machines': machines} for number, duration, machines in zip(self.tests_modelB, self.durations_modelB, self.machines_allowed_modelB)]
         
-        tasks_machine_modelB = tasks_machine_restrictions_modelB + tasks_machine_no_restrictions_modelB
+        print("machine_availability")
+        print(machine_availability)
+        print()
+        
+        ##!? greedy algorithm
+        ##! idea: start for assigment machines with restrictions in a hierarchical way, first the ones that have more restrictions
+        
+        ##! sorting tasks by the longest duration
+        ##! sort first by the number of machines allowed, then by the duration, but separately
+        
+        tasks_modelB_restrictions_sorted = sorted([task for task in tasks_modelB if len(task['machines']) != self.num_machines], key=lambda x: (len(x['machines']), x['duration']), reverse=False)
+        tasks_modelB_no_restrictions_sorted = sorted([task for task in tasks_modelB if len(task['machines']) == self.num_machines], key=lambda x: x['duration'], reverse=True)
+        
+        tasks_modelB_sorted = tasks_modelB_restrictions_sorted + tasks_modelB_no_restrictions_sorted
+        
+        print([task['id'] for task in tasks_modelB_restrictions_sorted])
+        print()
+        print([task['id'] for task in tasks_modelB_no_restrictions_sorted])
+        print()
+        print([task['id'] for task in tasks_modelB_sorted])
+
+        ##! create the heap with the available machines
+        heapq.heapify(machine_availability)
+        
+        tasks_assignment_B = {} ##! dictionary with the task id and the machine assigned: {task_id: (machine_id, start_time)}
+        
+        for task_id, task in enumerate(tasks_modelB_sorted):
+            assigned = False
+            task_duration = task['duration']
+            machines_available = task['machines']
+            
+            slots_to_add = []
+            while assigned == False:
+                
+                start_slot, end_slot, machine_id = heapq.heappop(machine_availability)
+
+                if (machine_id in machines_available) and (end_slot - start_slot >= task_duration):
+                    task_start_time = start_slot
+                    tasks_assignment_B[task['id']] = (machine_id, task_start_time)
+
+                    new_slots = []
+                    if start_slot < task_start_time:
+                        slots_to_add.append((start_slot, task_start_time, machine_id))
+                    if task_start_time + task_duration < end_slot:
+                        slots_to_add.append((task_start_time + task_duration, end_slot, machine_id))
+                    
+                    assigned = True
+                else:
+                    ##! it does not fit, save the slot to send back to the heap later
+                    slots_to_add.append((start_slot, end_slot, machine_id))
+            
+            
+            for slot in slots_to_add:
+                ###! after the assignment, we add the slots back to the heap
+                heapq.heappush(machine_availability, slot)
+
+
+        tasks_assignment_A = {self.tests_modelA[i]: (self.machines_assigned_A[i], self.start_times_A[i]) for i in range(self.num_tests_modelA)}
+        
+        print(tasks_assignment_A)
+        print()
+        
+        self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_B}
+        
+        print(self.tasks_assignment)
+        
+        
+        self.total_makespan = max([self.tasks_assignment[task][1] + self.durations[task-1] for task in self.tasks_assignment])
     
+    
+    def checker_solution(self):
+        
+        ##! check if the solution is correct
+        for task in self.tasks_assignment:
+            machine_id, start_time = self.tasks_assignment[task]
+            duration = self.durations[task-1]
+            
+            if start_time < 0:
+                print("Error: start time is negative")
+                return False
+            
+            if machine_id not in self.machines_allowed[task-1]:
+                print("Error: machine not allowed")
+                return False
+            
+            if start_time + duration > self.total_makespan:
+                print("Error: makespan is not correct")
+                return False
+        
+            ##! overlpaping tasks in the same machine
+            for task2 in self.tasks_assignment:
+                if task != task2:
+                    machine_id2, start_time2 = self.tasks_assignment[task2]
+                    duration2 = self.durations[task2-1]
+                    
+                    if machine_id == machine_id2:
+                        if (start_time >= start_time2 and start_time < start_time2 + duration2) or (start_time + duration > start_time2 and start_time + duration <= start_time2 + duration2):
+                            print("Error: overlapping tasks")
+                            print(task, task2)
+                            print(start_time, start_time2)
+                            print(duration, duration2)
+                            print(machine_id, machine_id2)
+                            return False
+            
+            ##! overlappint tasks that consume the same resource
+            for resource in self.resources[task-1]:
+                for task2 in self.tasks_assignment:
+                    if task != task2:
+                        machine_id2, start_time2 = self.tasks_assignment[task2]
+                        duration2 = self.durations[task2-1]
+                        
+                        if resource in self.resources[task2-1] and resource != 'e':
+                            if (start_time >= start_time2 and start_time < start_time2 + duration2) or (start_time + duration > start_time2 and start_time + duration <= start_time2 + duration2):
+                                print("Error: overlapping tasks")
+                                print(task, task2)
+                                print(start_time, start_time2)
+                                print(duration, duration2)
+                                print(machine_id, machine_id2)
+                                return False
+
+        return True
     
     
     
@@ -396,6 +512,8 @@ if __name__ == "__main__":
     
     # problem.load_modelB()
     problem.gready_algorithm_modelB()
+    
+    print("Is solution:", problem.checker_solution())
     
     
     
