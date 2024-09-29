@@ -4,6 +4,9 @@ from minizinc import Instance, Model, Solver
 import time
 import itertools
 import heapq
+from itertools import groupby
+from operator import itemgetter
+
 
 class Problem:
     
@@ -123,15 +126,13 @@ class Problem:
         return intersection
     
     
-    def convert_input_models(self):
+    def input_data_modelA(self):
         
+        ##! Input data for all the tests
         dictionaire_machines = {f"m{i+1}": i+1 for i in range(self.num_machines)}
-        dictionaire_resources = {f"r{i+1}": i for i in range(self.num_resources)}
-        
         setAllMachines = {i+1 for i in range(self.num_machines)}
         
         self.machines_allowed = []
-    
         for i in range(self.num_tests):
             if self.machines[i] == ['e']:
                 self.machines_allowed.append(setAllMachines) ## probably this ones is default, no need to add it
@@ -149,27 +150,28 @@ class Problem:
                     self.have_resources[i] = True
         
         
+        ###! Input data for model A
+        ## It includes only the tests that have resources despite it has restrictions on the machines or not
         
-        # ##! not including the tests that have resources
-        # self.machine_restrictions = [True if (self.machines_allowed[i] != setAllMachines and self.have_resources[i] == False) else False for i in range(self.num_tests)]
-        
-        ## Input data for model A
-        # self.tests_modelA = [i+1 for i in range(self.num_tests) if (self.have_resources[i] == True or self.machines_allowed[i] != setAllMachines)] # true tests name
         self.tests_modelA = [i+1 for i in range(self.num_tests) if self.have_resources[i] == True]
         self.num_tests_modelA = len(self.tests_modelA)
         
+        ## convert the tests to a dictionary to have the index of the test (to start from 1)
         dictionaire_tests_modelA = {self.tests_modelA[i]:i+1  for i in range(self.num_tests_modelA)}
         
         self.durations_modelA = [self.durations[i-1] for i in self.tests_modelA]
+        
         self.machines_allowed_modelA = [self.machines_allowed[i-1] for i in self.tests_modelA]
-        self.resources_allowed_modelA = [{dictionaire_tests_modelA[j] for j in self.resources_allowed[i]} for i in range(self.num_resources)]
-        self.resources_effective_modelA = Problem.filter_sets(self.resources_allowed_modelA)
+        resources_allowed_modelA = [{dictionaire_tests_modelA[j] for j in self.resources_allowed[i]} for i in range(self.num_resources)]
+        self.resources_effective_modelA = Problem.filter_sets(resources_allowed_modelA)
         
         self.num_resources_effective = len(self.resources_effective_modelA)
-        
         self.have_resources_modelA = [self.have_resources[i-1] for i in self.tests_modelA]
         
         
+        ## offset in the global resources in the machines that have only one machine allowed - have that into account when checking the global resources
+        ##! fails to describe the case where there is at at least with unique restricton for each machine
+        ##!? include this exception later
         self.tests_unique_machines_no_resources = [i+1 for i in range(self.num_tests) if (self.have_resources[i] == False and len(self.machines_allowed[i]) == 1)]
         
         self.offset_machine = [set() for _ in range(self.num_machines)]
@@ -180,7 +182,7 @@ class Problem:
         self.offset_which_machine = [i+1 if self.offset_machine[i] > 0 else 0 for i in range(self.num_machines)]
         
         
-        ## Ideas that seem not to improve the efficiency
+        ##! Ideas that seem not to improve the efficiency, but worth to keep in mind and explore later
         # self.test_resources_modelA_no_restriction_machines = set(i+1 for i in range(self.num_tests_modelA) if len(self.machines_allowed_modelA[i]) == self.num_machines)
         # print(self.test_resources_modelA_no_restriction_machines)
         
@@ -215,77 +217,14 @@ class Problem:
         
         instance["machines_allowed"] = self.machines_allowed_modelA
         instance["resources_allowed"] = self.resources_effective_modelA
-        instance["have_resources"] = self.have_resources_modelA
         
         instance["offset_machine"] = self.offset_machine
         instance["offset_which_machine"] = self.offset_which_machine
         
-        # instance["test_resources_no_restriction_machines"] = self.test_resources_modelA_no_restriction_machines
-        
-        print("num_resources: ", self.num_resources_effective)
-        print("resources: ", self.resources_effective_modelA)
-        print("machines: ", self.machines_allowed_modelA)
-        
         ## solve the model
         self.result = instance.solve()
-        print(self.result)
-    
-    
-    def input_data_model_B(self):
-    
-        self.makespan_A = self.result["makespan"]
-        self.machines_assigned_A = self.result["machine_assigned"]
-        self.start_times_A = self.result["start"]
-
-        # print(self.machines_assigned_A)
-        # print(self.start_times_A)
-        # print(self.makespan_A)
-        
-        
-        
-        ## list tests with machine restrictions and not included in model A
-        self.tests_modelB = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
-        # self.tests_modelB_restrictions = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA and len(self.machines_allowed[i]) != self.num_machines]
-        
-        self.num_tests_modelB = len(self.tests_modelB)
-        
-        self.durations_modelB = [self.durations[i-1] for i in self.tests_modelB]
-        self.machines_allowed_modelB = [self.machines_allowed[i-1] for i in self.tests_modelB]
-        
-        ## intial times of tests from model A 
-        self.s_init_vec = self.start_times_A
-        self.s_end_vec = [self.start_times_A[i] + self.durations_modelA[i] for i in range(self.num_tests_modelA)]
-        self.n_s = self.num_tests_modelA
-        
-        # ## machines assignes model A
-        # self.machines_assigned_A = [self.machines_assigned_A[i-1] for i in self.tests_modelA]
-        
-    
-    ##! not used by now
-    def load_modelB(self, solver_name="cbc"):
-        
-        ## load the model and the solver
-        model = Model('./model/modelB.mzn')
-        solver = Solver.lookup(solver_name)
-        instance = Instance(solver, model)
-        
-        ## load the data into the model
-        instance["num_tests_A"] = self.num_tests_modelA
-        instance["num_tests"] = self.num_tests_modelB
-        instance["num_machines"] = self.num_machines
-        
-        instance["durations"] = self.durations_modelB
-        instance["machines_allowed"] = self.machines_allowed_modelB
-        
-        instance["s_init_vec"] = self.s_init_vec
-        instance["s_end_vec"] = self.s_end_vec
-        instance["n_s"] = self.n_s
-        
-        instance["machine_assigned_A"] = self.machines_assigned_A
-        
-        ## solve the model
-        self.result = instance.solve()
-        print(self.result)
+        print("results model A: ", self.result)
+        print()
     
     
     ##! for the second part of the problem, instead of using the minizinc model, I will use a greedy algorithm
@@ -295,12 +234,9 @@ class Problem:
         self.makespan_A = self.result["makespan"]
         self.machines_assigned_A = self.result["machine_assigned"]
         self.start_times_A = self.result["start"]
-
         
         ## list tests with machine restrictions and not included in model A
         self.tests_modelB = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
-        # self.tests_modelB_restrictions = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA and len(self.machines_allowed[i]) != self.num_machines]
-        
         self.num_tests_modelB = len(self.tests_modelB)
         
         self.durations_modelB = [self.durations[i-1] for i in self.tests_modelB]
@@ -311,36 +247,27 @@ class Problem:
         self.s_end_vec = [self.start_times_A[i] + self.durations_modelA[i] for i in range(self.num_tests_modelA)]
         self.n_s = self.num_tests_modelA
         
-        
-        tests_sorted = [i for _, i in sorted(zip(self.durations_modelB, self.tests_modelB), reverse=True)]
-        
-        #! create the list of the available machines and their free time
-        machine_loads_aux = [(self.s_init_vec[i], self.s_end_vec[i], self.machines_assigned_A[i]) for i in range(self.num_tests_modelA)]
 
-        from itertools import groupby
-        from operator import itemgetter
-
-        sorted_data = sorted(machine_loads_aux, key=itemgetter(2))
+        #! create the list of the machines assigned in model A and sort the data
+        s_data_sorted = sorted([(self.s_init_vec[i], self.s_end_vec[i], self.machines_assigned_A[i]) for i in range(self.num_tests_modelA)]\
+            , key=lambda x: x[2])
 
         # Group the sorted data based on the third component and maintain internal order
-        result = []
-        for key, group in groupby(sorted_data, key=itemgetter(2)):
+        s_data_grouped = []
+        for key, group in groupby(s_data_sorted, key=lambda x: x[2]):
             # For each group, convert groupby object to a list to maintain sub-order
             group_list = list(group)
-            result.append(group_list)
-        
-        new_sorted_data = []
-        for group in result:
-            group = sorted(group, key=lambda x: x[0])
-            new_sorted_data.append(group)
+            group_list = sorted(group_list, key=lambda x: x[0])
+            s_data_grouped.append(group_list)
         
         
-        self.max_number = 100000  ##! maximum size number for now
-        
+        ##! maximum size number for now 
+        ##! change it later for a variable that is the maximum time of the makespan
+        self.max_number = 100000 
         
         ##! create the list of the available machines and their free time
         machine_availability = []
-        for group in new_sorted_data:
+        for group in s_data_grouped:
             
             ###! find the free slots between the ordered assigned tasks
             for i in range(len(group)-1):
@@ -351,9 +278,9 @@ class Problem:
             
             if len(group) == 1 and group[0][0] != 0:
                 machine_availability.append((0, group[0][0], group[0][2]))
-                machine_availability.append((group[0][1], self.max_number, group[0][2])) ## 9999 not important
+                machine_availability.append((group[0][1], self.max_number, group[0][2])) 
             elif len(group) == 1 and group[0][0] == 0:
-                machine_availability.append((group[0][1], self.max_number, group[0][2])) ## 9999 not important
+                machine_availability.append((group[0][1], self.max_number, group[0][2])) 
             else:
                 machine_availability.append((group[-1][1], self.max_number, group[-1][2]))
         
@@ -365,33 +292,30 @@ class Problem:
         
         
         ##! list of tasks, its id, duration and machines allowed that are up to be assigned
-        tasks_modelB = [ {'id': number, 'duration': duration, 'machines': machines} for number, duration, machines in zip(self.tests_modelB, self.durations_modelB, self.machines_allowed_modelB)]
+        tasks_modelB = [ {'id': number, 'duration': duration, 'machines': machines}\
+            for number, duration, machines in zip(self.tests_modelB, self.durations_modelB, self.machines_allowed_modelB)]
         
-        print("machine_availability")
-        print(machine_availability)
-        print()
         
         ##!? greedy algorithm
-        ##! idea: start for assigment machines with restrictions in a hierarchical way, first the ones that have more restrictions
-        
-        ##! sorting tasks by the longest duration
-        ##! sort first by the number of machines allowed, then by the duration, but separately
+        ##! idea: start to assign machines with restrictions in a hierarchical way, first the ones that have more restrictions
+        ##! sort first by the number of machines allowed, then by the longest duration, but separately
         
         tasks_modelB_restrictions_sorted = sorted([task for task in tasks_modelB if len(task['machines']) != self.num_machines], key=lambda x: (len(x['machines']), x['duration']), reverse=False)
         tasks_modelB_no_restrictions_sorted = sorted([task for task in tasks_modelB if len(task['machines']) == self.num_machines], key=lambda x: x['duration'], reverse=True)
         
         tasks_modelB_sorted = tasks_modelB_restrictions_sorted + tasks_modelB_no_restrictions_sorted
         
-        print([task['id'] for task in tasks_modelB_restrictions_sorted])
-        print()
-        print([task['id'] for task in tasks_modelB_no_restrictions_sorted])
-        print()
-        print([task['id'] for task in tasks_modelB_sorted])
+        # print([task['id'] for task in tasks_modelB_restrictions_sorted])
+        # print()
+        # print([task['id'] for task in tasks_modelB_no_restrictions_sorted])
+        # print()
+        # print([task['id'] for task in tasks_modelB_sorted])
 
         ##! create the heap with the available machines
         heapq.heapify(machine_availability)
         
-        tasks_assignment_B = {} ##! dictionary with the task id and the machine assigned: {task_id: (machine_id, start_time)}
+        ##! dictionary with the task id and the machine assigned: {task_id: (machine_id, start_time)}
+        tasks_assignment_B = {} 
         
         for task_id, task in enumerate(tasks_modelB_sorted):
             assigned = False
@@ -425,16 +349,12 @@ class Problem:
 
 
         tasks_assignment_A = {self.tests_modelA[i]: (self.machines_assigned_A[i], self.start_times_A[i]) for i in range(self.num_tests_modelA)}
-        
-        print(tasks_assignment_A)
-        print()
-        
         self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_B}
-        
-        print(self.tasks_assignment)
-        
-        
         self.total_makespan = max([self.tasks_assignment[task][1] + self.durations[task-1] for task in self.tasks_assignment])
+        
+        print("final tasks' assignment: ", self.tasks_assignment)
+        print()
+    
     
     
     def checker_solution(self):
@@ -486,15 +406,28 @@ class Problem:
                                 print(duration, duration2)
                                 print(machine_id, machine_id2)
                                 return False
-
+        
         return True
     
     
     
     def create_output_model(self):
         
-        # convert the output data from the file to the minizinc model
-        pass
+        with open(self.output_file_name, 'w') as output_file:
+            output_file.write(f"% Makespan : {self.total_makespan}\n")
+            
+            for machine_id in range(1, self.num_machines+1):
+                output_file.write(f"machine( 'm{machine_id}', ")
+                
+                tasks_machine = [(f"t{task}", self.tasks_assignment[task][1], self.resources[task-1]) for task in self.tasks_assignment if self.tasks_assignment[task][0] == machine_id]
+                tasks_machine = sorted(tasks_machine, key=lambda x: x[1])
+                tasks_machine = [(f"t{task[0]}", task[1]) if task[2] == ['e'] else task for task in tasks_machine]
+                num_tasks = len(tasks_machine)
+                
+                output_file.write(f"{num_tasks}, {tasks_machine})\n")
+        
+        print(f"Output file created: {self.output_file_name}")
+        print()
 
 
 
@@ -504,23 +437,17 @@ if __name__ == "__main__":
     
     problem = Problem.parse_instance()
     problem.read_input_data()
-    problem.convert_input_models()
     
+    
+    problem.input_data_modelA()
     problem.load_modelA()
     
-    # problem.input_data_model_B()
-    
-    # problem.load_modelB()
     problem.gready_algorithm_modelB()
     
     print("Is solution:", problem.checker_solution())
     
     
-    
+    problem.create_output_model()
     time_end = time.time()
     
-    print(f"Time: {time_end - time_start}")
-    
-    # print(problem.input_file_name)
-    # print(problem.output_file_name)
-
+    print(f"Time: {time_end - time_start} secs")
