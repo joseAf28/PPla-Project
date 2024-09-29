@@ -52,16 +52,42 @@ constraint
     forall(r in 1..num_resources)(exclusive(resources_allowed[r]));
 
 
+% constraint forall(i in 1..num_tests, m in 1..num_machines)(
+%             if machine_assigned[i] == offset_which_machine[m] then 
+%                 start[i] >= offset_machine[m]
+%             else
+%             true
+%             endif
+%         );
+
 constraint forall(i in 1..num_tests, m in 1..num_machines)(
-            if machine_assigned[i] == offset_which_machine[m] then 
-                start[i] >= offset_machine[m]
-            else
-            true
-            endif
-        );       
+            (machine_assigned[i] == offset_which_machine[m]) ->
+            (start[i] >= offset_machine[m])
+);
+
+
+% tests cannot overlap in the same machine
+constraint forall(t1 in 1..num_tests, t2 in 1..num_tests where t1 < t2)(
+    (machine_assigned[t1] == machine_assigned[t2]) -> 
+    (start[t1] + durations[t1] <= start[t2] \/ start[t2] + durations[t2] <= start[t1])
+);
+
 
 % constraint forall(i in 1..num_tests-1)(machine_assigned[i] <= machine_assigned[i+1]);
 
+% constraint forall(t1 in 1..num_tests, t2 in 1..num_tests where t1 < t2)(
+%     (machine_assigned[t1] == machine_assigned[t2]) -> 
+%     (start[t1] + durations[t1] <= start[t2] \/ 
+%      start[t2] + durations[t2] <= start[t1])
+% );
+% constraint all_different([start[i] | i in 1..num_tests, m in 1..num_machines where machine_assigned[i] == m]);
+
+% constraint all_different([start[i] + durations[i] | i in 1..num_tests, m in 1..num_machines where machine_assigned[i] == m]);
+
+% constraint forall(i in 1..num_tests-1)(machine_assigned[i] <= machine_assigned[i+1]);
+
+
+%% machines cannot run two tests at the same time
 
 % tests cannot overlap in the same machine, not used as we only consider the restriction in which the tests can be assigned to a single machine
 % possible problem if all machines have a restriction

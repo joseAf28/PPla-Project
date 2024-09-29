@@ -15,7 +15,7 @@ int: n_s;
 array[1..n_s] of int: s_init_vec;
 array[1..n_s] of int: s_end_vec;
 
-array[1..n_s] of int: machines_assigned_A;
+array[1..n_s] of int: machine_assigned_A;
 
 %% output the tests that have global resources
 array[1..num_tests] of var 1..num_machines: machine_assigned;  % machine_assigned[i] is the machine to which test i is assigned
@@ -43,24 +43,22 @@ constraint
 %         endif
 %     );
 
-constraint
-    forall(i, j in 1..num_tests where i < j) (
-        if machine_assigned[i] == machine_assigned[j]  then
-            start[i] + durations[i] <= start[j]
-        else
-            true
-        endif
-    );
+constraint forall(i, j in 1..num_tests where i < j) 
+    ((machine_assigned[i] == machine_assigned[j]) -> (start[i] + durations[i] <= start[j] \/ start[j] + durations[j] <= start[i]));
 
 
-constraint
-    forall(i in 1..num_tests, j in 1..num_tests_A) (
-        if machine_assigned[i] == machines_assigned_A[j] then 
-            start[i] + durations[i] <= s_init_vec[j] \/ s_end_vec[j] <= start[i]
-        else 
-            true
-        endif
-        );
+% constraint
+%     forall(i in 1..num_tests, j in 1..num_tests_A) (
+%         if machine_assigned[i] == machine_assigned_A[j] then 
+%             start[i] + durations[i] <= s_init_vec[j] \/ s_end_vec[j] <= start[i]
+%         else 
+%             true
+%         endif
+%         );
+
+constraint forall(i in 1..num_tests, j in 1..num_tests_A) (
+        (machine_assigned[i] == machine_assigned_A[j]) ->
+            (start[i] + durations[i] <= s_init_vec[j] \/ s_end_vec[j] <= start[i]));
 
 % constraint
 %     forall(i in 1..num_tests, j in 1..num_tests_A) (
