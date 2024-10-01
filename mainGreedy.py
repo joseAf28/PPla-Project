@@ -7,6 +7,11 @@ import heapq
 from itertools import groupby
 from operator import itemgetter
 
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+
+
 
 class Problem:
     
@@ -169,9 +174,7 @@ class Problem:
         self.have_resources_modelA = [self.have_resources[i-1] for i in self.tests_modelA]
         
         
-        ## offset in the global resources in the machines that have only one machine allowed - have that into account when checking the global resources
-        ##! fails to describe the case where there is at at least with unique restricton for each machine
-        ##!? include this exception later
+        ##! offset in the global resources in the machines that have only one machine allowed - have that into account when checking the global resources
         self.tests_unique_machines_no_resources = [i+1 for i in range(self.num_tests) if (self.have_resources[i] == False and len(self.machines_allowed[i]) == 1)]
         
         self.offset_machine = [set() for _ in range(self.num_machines)]
@@ -180,6 +183,27 @@ class Problem:
         
         self.offset_machine = [sum(offset) for offset in self.offset_machine]
         self.offset_which_machine = [i+1 if self.offset_machine[i] > 0 else 0 for i in range(self.num_machines)]
+        
+        ##!? describe the case where there is at at least with unique restricton for each machine
+        ##!? by default the offset from the last machine is zero
+        if len(self.offset_which_machine) == self.num_machines:
+            self.offset_which_machine[-1] = 0
+        
+        
+        # ##!? Idea - restrict the number of machines to the number of tests for the global resources
+        # ##!? seems not improve the efficiency
+
+        # self.set_non_common_machines = set()
+        # for i in range(self.num_tests_modelA):
+        #     if len(self.machines_allowed_modelA[i]) < self.num_machines:
+        #         self.set_non_common_machines.update(self.machines_allowed_modelA[i])
+        
+        # set_diff_elements = setAllMachines - self.set_non_common_machines
+        
+        # while len(self.set_non_common_machines) < self.num_resources:
+        #     self.set_non_common_machines.add(set_diff_elements.pop())
+        
+        # self.machines_effective_allowed_modelA = [self.set_non_common_machines if len(self.machines_allowed_modelA[i]) == len(setAllMachines) else self.machines_allowed_modelA[i] for i in range(self.num_tests_modelA)]
         
         
         ##! Ideas that seem not to improve the efficiency, but worth to keep in mind and explore later
@@ -208,6 +232,12 @@ class Problem:
         solver = Solver.lookup(solver_name)
         instance = Instance(solver, model)
         
+        print("num Tests: ", self.num_tests_modelA)
+        print("num Machines: ", self.num_machines)
+        print("num Resources: ", self.num_resources_effective)
+        print("effective resources: ", self.resources_effective_modelA)
+        print()
+        
         ## load the data into the model
         instance["num_tests"] = self.num_tests_modelA
         instance["num_machines"] = self.num_machines
@@ -216,6 +246,8 @@ class Problem:
         instance["durations"] = self.durations_modelA
         
         instance["machines_allowed"] = self.machines_allowed_modelA
+        # instance["machines_allowed"] = self.machines_effective_allowed_modelA
+        
         instance["resources_allowed"] = self.resources_effective_modelA
         
         instance["offset_machine"] = self.offset_machine
@@ -223,8 +255,62 @@ class Problem:
         
         ## solve the model
         self.result = instance.solve()
-        print("results model A: ", self.result)
+    
+    
+    def load_modelB(self, solver_name="cbc"):
+        
+        self.makespan_A = self.result["makespan"]
+        self.machines_assigned_A = self.result["machine_assigned"]
+        self.start_times_A = self.result["start"]
+        
+        print("model A results")
+        
+        print("effective resources: ", self.resources_effective_modelA)
+        print("makespan A: ", self.makespan_A)
+        print("machines assigned A: ", self.machines_assigned_A)
+        print("start times A: ", self.start_times_A)
+        
         print()
+        
+        ## list tests with machine restrictions and not included in model A
+        self.tests_modelB = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
+        self.num_tests_modelB = len(self.tests_modelB)
+        
+        self.durations_modelB = [self.durations[i-1] for i in self.tests_modelB]
+        self.machines_allowed_modelB = [self.machines_allowed[i-1] for i in self.tests_modelB]
+        
+        ## intial times of tests from model A 
+        self.s_init_vec = self.start_times_A
+        self.s_end_vec = [self.start_times_A[i] + self.durations_modelA[i] for i in range(self.num_tests_modelA)]
+        self.n_s = self.num_tests_modelA
+        
+        
+        ##! load model
+        model = Model('./model/modelB.mzn')
+        solver = Solver.lookup(solver_name)
+        instance = Instance(solver, model)
+        
+        ## load the data into the model
+        instance["num_tests_A"] = self.num_tests_modelA
+        instance["num_tests"] = self.num_tests_modelB
+        instance["num_machines"] = self.num_machines
+        
+        instance["durations"] = self.durations_modelB
+        
+        instance["machines_allowed"] = self.machines_allowed_modelB
+        
+        instance["n_s"] = self.n_s
+        
+        instance["s_init_vec"] = self.s_init_vec
+        instance["s_end_vec"] = self.s_end_vec
+        
+        instance["machine_assigned_A"] = self.machines_assigned_A
+        
+        
+        self.result_B = instance.solve()
+        
+        print("results model B: ", self.result_B)
+        
     
     
     ##! for the second part of the problem, instead of using the minizinc model, I will use a greedy algorithm
@@ -234,6 +320,15 @@ class Problem:
         self.makespan_A = self.result["makespan"]
         self.machines_assigned_A = self.result["machine_assigned"]
         self.start_times_A = self.result["start"]
+        
+        print("model A results")
+        
+        print("effective resources: ", self.resources_effective_modelA)
+        print("makespan A: ", self.makespan_A)
+        print("machines assigned A: ", self.machines_assigned_A)
+        print("start times A: ", self.start_times_A)
+        
+        print()
         
         ## list tests with machine restrictions and not included in model A
         self.tests_modelB = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
@@ -261,9 +356,8 @@ class Problem:
             s_data_grouped.append(group_list)
         
         
-        ##! maximum size number for now 
-        ##! change it later for a variable that is the maximum time of the makespan
-        self.max_number = 100000 
+        ##! the maximum width of the time schedule for a machine
+        max_machine_time = sum(self.durations)
         
         ##! create the list of the available machines and their free time
         machine_availability = []
@@ -278,17 +372,17 @@ class Problem:
             
             if len(group) == 1 and group[0][0] != 0:
                 machine_availability.append((0, group[0][0], group[0][2]))
-                machine_availability.append((group[0][1], self.max_number, group[0][2])) 
+                machine_availability.append((group[0][1], max_machine_time, group[0][2])) 
             elif len(group) == 1 and group[0][0] == 0:
-                machine_availability.append((group[0][1], self.max_number, group[0][2])) 
+                machine_availability.append((group[0][1], max_machine_time, group[0][2])) 
             else:
-                machine_availability.append((group[-1][1], self.max_number, group[-1][2]))
+                machine_availability.append((group[-1][1], max_machine_time, group[-1][2]))
         
         
         ##! add the machines that have not been assigned any task: they are available from the beginning till the end
         for i in range(1, self.num_machines+1):
             if not any(machine[2] == i for machine in machine_availability):
-                machine_availability.append((0, self.max_number, i))
+                machine_availability.append((0, max_machine_time, i))
         
         
         ##! list of tasks, its id, duration and machines allowed that are up to be assigned
@@ -352,9 +446,21 @@ class Problem:
         self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_B}
         self.total_makespan = max([self.tasks_assignment[task][1] + self.durations[task-1] for task in self.tasks_assignment])
         
+        
+        if self.total_makespan > self.makespan_A:
+            print("best solution NOT garanteed")
+            print("makespan A: ", self.makespan_A)
+            print("makespan Total: ", self.total_makespan)
+        else: 
+            print("best solution garanteed")
+            print("makespan A: ", self.makespan_A)
+            print("makespan Total: ", self.total_makespan)
+            
+            ## but still we could minimize packing
+        
+        
         print("final tasks' assignment: ", self.tasks_assignment)
         print()
-    
     
     
     def checker_solution(self):
@@ -411,7 +517,7 @@ class Problem:
     
     
     
-    def create_output_model(self):
+    def create_output_file(self):
         
         with open(self.output_file_name, 'w') as output_file:
             output_file.write(f"% Makespan : {self.total_makespan}\n")
@@ -421,7 +527,7 @@ class Problem:
                 
                 tasks_machine = [(f"t{task}", self.tasks_assignment[task][1], self.resources[task-1]) for task in self.tasks_assignment if self.tasks_assignment[task][0] == machine_id]
                 tasks_machine = sorted(tasks_machine, key=lambda x: x[1])
-                tasks_machine = [(f"t{task[0]}", task[1]) if task[2] == ['e'] else task for task in tasks_machine]
+                tasks_machine = [(f"{task[0]}", task[1]) if task[2] == ['e'] else task for task in tasks_machine]
                 num_tasks = len(tasks_machine)
                 
                 output_file.write(f"{num_tasks}, {tasks_machine})\n")
@@ -431,7 +537,54 @@ class Problem:
 
 
 
+    def crete_plot_file(self):
+        
+        tasks_data = {task: (self.tasks_assignment[task][0], self.tasks_assignment[task][1], self.durations[task-1], self.resources[task-1]) for task in self.tasks_assignment}
+
+        machines = [f"m{tasks_data[task][0]}" for task in tasks_data]
+        start_times = [tasks_data[task][1] for task in tasks_data]
+        durations = [tasks_data[task][2] for task in tasks_data]
+        tasks = [f"t{task}" for task in tasks_data]
+        resources = [tasks_data[task][3] if tasks_data[task][3] != ['e']  else [''] for task in tasks_data]
+        
+        # Create a DataFrame to hold task information
+        df = pd.DataFrame({
+            'Machine': machines,
+            'Task': tasks,
+            'Start': start_times,
+            'Duration': durations,
+            'Resource': resources
+        })
+
+        # Create a figure and axis for plotting
+        fig, ax = plt.subplots(figsize=(20, 20))
+
+        # Create a bar for each task with a different color from the distribution
+        for i, task in enumerate(df.itertuples()):
+            
+            ax.barh(task.Machine, task.Duration, left=task.Start, align='center')
+            # Add text inside the rectangle (task name centered)
+            ax.text(task.Start + task.Duration / 2, task.Machine, f"{task.Task} - {task.Resource}", va='center', ha='center', color='black', fontweight='bold')
+
+        # Set labels and title
+        ax.set_xlabel('Time (hours)')
+        ax.set_ylabel('Machines')
+        ax.set_title('Machine Task Timetable')
+
+        # Set x-axis to start at zero and extend based on the task durations
+        ax.set_xlim(0, max(df['Start'] + df['Duration']))
+
+        # Show the plot
+        plt.tight_layout()
+        # plt.show()
+
+        plt.savefig(self.output_file_name + '.png')
+        
+        
+
 if __name__ == "__main__":
+    
+    ##! using the Greedy algorithm
     
     time_start = time.time()
     
@@ -446,8 +599,9 @@ if __name__ == "__main__":
     
     print("Is solution:", problem.checker_solution())
     
-    
-    problem.create_output_model()
+    problem.create_output_file()
     time_end = time.time()
+    
+    problem.crete_plot_file()
     
     print(f"Time: {time_end - time_start} secs")

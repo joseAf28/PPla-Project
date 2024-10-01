@@ -32,6 +32,10 @@ var 0..num_makespan: makespan; % The makespan (time when the last test finishes)
 predicate exclusive(set of int: s) =
     disjunctive([start[i] | i in s], [durations[i] | i in s]);
 
+% predicate exclusive(set of int: s) =
+%     forall(i in s, j in s where i < j) (
+%         start[i] + durations[i] <= start[j] \/ start[j] + durations[j] <= start[i]
+%     );
 
 % Constraints
 %Each test must be assigned to an allowed machine
@@ -41,15 +45,10 @@ constraint
         );
 
 
-%Global resources: tests cannot overlap on the same resource
+% Global resources: tests cannot overlap on the same resource
 constraint
         forall(r in 1..num_resources)(
             exclusive(resources_allowed[r]));
-
-% constraint %% seems not improving the performance when compared to the disjunctive
-%         forall(r in 1..num_resources)(
-%             cumulative([start[i] | i in resources_allowed[r]], [durations[i] | i in resources_allowed[r]], [1 | i in resources_allowed[r]], 1)
-%             );
 
 
 % offset in the machine schedule in the case that a test must be assigned to a specific machine
@@ -60,12 +59,12 @@ constraint
 
 
 % tests cannot overlap in the same machine
-
-% constraint %% - weaker constraint than the one below - it does not fix any type of order
+% constraint 
 %         forall(t1 in 1..num_tests, t2 in 1..num_tests where t1 < t2)(
 %             (machine_assigned[t1] == machine_assigned[t2]) -> 
 %             (start[t1] + durations[t1] <= start[t2] \/ start[t2] + durations[t2] <= start[t1])
 % );
+
 constraint 
         forall(t1 in 1..num_tests, t2 in 1..num_tests where t1 < t2)(
             (machine_assigned[t1] == machine_assigned[t2]) -> 
@@ -74,22 +73,19 @@ constraint
 
 
 
-%% define an order for the tests
-%%! it improves the performance a lot
-%% since we are considering only the tests with global resources
+
 constraint forall(i in 1..num_tests-1)(start[i] <= start[i+1]);
 
 
-%% it seems too restricitve and many times it does not find any solution
 % constraint forall(i in 1..num_tests-1)(machine_assigned[i] <= machine_assigned[i+1]);
 
 
 constraint makespan = max([start[i] + durations[i] | i in 1..num_tests]);
 
 
+
 % Objective: Minimize the makespan
 % solve :: int_search(start, first_fail, indomain_min) minimize makespan;
-
 solve minimize makespan;
 
 

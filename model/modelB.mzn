@@ -56,6 +56,14 @@ constraint forall(i, j in 1..num_tests where i < j)
 %         endif
 %         );
 
+
+% constraint forall(i, j in 1..num_tests where i < j) 
+%     ((machine_assigned[i] == machine_assigned[j]) -> (start[i] <= start[j]));
+
+
+
+
+
 constraint forall(i in 1..num_tests, j in 1..num_tests_A) (
         (machine_assigned[i] == machine_assigned_A[j]) ->
             (start[i] + durations[i] <= s_init_vec[j] \/ s_end_vec[j] <= start[i]));
