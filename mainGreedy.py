@@ -232,12 +232,6 @@ class Problem:
         solver = Solver.lookup(solver_name)
         instance = Instance(solver, model)
         
-        print("num Tests: ", self.num_tests_modelA)
-        print("num Machines: ", self.num_machines)
-        print("num Resources: ", self.num_resources_effective)
-        print("effective resources: ", self.resources_effective_modelA)
-        print()
-        
         ## load the data into the model
         instance["num_tests"] = self.num_tests_modelA
         instance["num_machines"] = self.num_machines
@@ -250,19 +244,6 @@ class Problem:
         
         instance["resources_allowed"] = self.resources_effective_modelA
         
-        resources_aux = [(self.resources_effective_modelA[i]).copy() for i in range(self.num_resources_effective)]
-        print("resources_aux: ", resources_aux[0])
-        
-        for i in range(self.num_resources_effective):
-            highest = max(resources_aux[i])
-            resources_aux[i].remove(highest)
-        
-        self.order_resources = resources_aux
-        
-        print("resources_aux2: ", resources_aux)
-        print("resources_allowed: ", self.resources_effective_modelA)
-        instance["order_resources"] = self.order_resources
-        
         instance["offset_machine"] = self.offset_machine
         instance["offset_which_machine"] = self.offset_which_machine
         
@@ -270,6 +251,7 @@ class Problem:
         self.result = instance.solve()
     
     
+    ##! Not used with the greedy algorithm
     def load_modelB(self, solver_name="cbc"):
         
         self.makespan_A = self.result["makespan"]
@@ -340,7 +322,6 @@ class Problem:
         print("makespan A: ", self.makespan_A)
         print("machines assigned A: ", self.machines_assigned_A)
         print("start times A: ", self.start_times_A)
-        print("order resources: ", self.order_resources)
         
         print()
         
@@ -561,7 +542,6 @@ class Problem:
         tasks = [f"t{task}" for task in tasks_data]
         resources = [tasks_data[task][3] if tasks_data[task][3] != ['e']  else [''] for task in tasks_data]
         
-        # Create a DataFrame to hold task information
         df = pd.DataFrame({
             'Machine': machines,
             'Task': tasks,
@@ -570,28 +550,21 @@ class Problem:
             'Resource': resources
         })
 
-        # Create a figure and axis for plotting
         fig, ax = plt.subplots(figsize=(20, 20))
 
-        # Create a bar for each task with a different color from the distribution
         for i, task in enumerate(df.itertuples()):
-            
             ax.barh(task.Machine, task.Duration, left=task.Start, align='center')
-            # Add text inside the rectangle (task name centered)
-            ax.text(task.Start + task.Duration / 2, task.Machine, f"{task.Task} - {task.Resource} - {task.Duration}", va='center', ha='center', color='black', fontweight='bold')
+            ax.text(task.Start + task.Duration / 2, task.Machine, f"{task.Task} - {task.Resource}", va='center', ha='center', color='black', fontweight='bold')
 
         # Set labels and title
-        ax.set_xlabel('Time (hours)')
+        ax.set_xlabel('Time')
         ax.set_ylabel('Machines')
-        ax.set_title('Machine Task Timetable')
+        ax.set_title('Job-Task Schedule')
 
         # Set x-axis to start at zero and extend based on the task durations
         ax.set_xlim(0, max(df['Start'] + df['Duration']))
-
-        # Show the plot
+        
         plt.tight_layout()
-        # plt.show()
-
         plt.savefig(self.output_file_name + '.png')
         
         
