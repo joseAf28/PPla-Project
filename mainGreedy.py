@@ -250,6 +250,19 @@ class Problem:
         
         instance["resources_allowed"] = self.resources_effective_modelA
         
+        resources_aux = [(self.resources_effective_modelA[i]).copy() for i in range(self.num_resources_effective)]
+        print("resources_aux: ", resources_aux[0])
+        
+        for i in range(self.num_resources_effective):
+            highest = max(resources_aux[i])
+            resources_aux[i].remove(highest)
+        
+        self.order_resources = resources_aux
+        
+        print("resources_aux2: ", resources_aux)
+        print("resources_allowed: ", self.resources_effective_modelA)
+        instance["order_resources"] = self.order_resources
+        
         instance["offset_machine"] = self.offset_machine
         instance["offset_which_machine"] = self.offset_which_machine
         
@@ -327,6 +340,7 @@ class Problem:
         print("makespan A: ", self.makespan_A)
         print("machines assigned A: ", self.machines_assigned_A)
         print("start times A: ", self.start_times_A)
+        print("order resources: ", self.order_resources)
         
         print()
         
@@ -564,7 +578,7 @@ class Problem:
             
             ax.barh(task.Machine, task.Duration, left=task.Start, align='center')
             # Add text inside the rectangle (task name centered)
-            ax.text(task.Start + task.Duration / 2, task.Machine, f"{task.Task} - {task.Resource}", va='center', ha='center', color='black', fontweight='bold')
+            ax.text(task.Start + task.Duration / 2, task.Machine, f"{task.Task} - {task.Resource} - {task.Duration}", va='center', ha='center', color='black', fontweight='bold')
 
         # Set labels and title
         ax.set_xlabel('Time (hours)')

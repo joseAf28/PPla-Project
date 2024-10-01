@@ -21,6 +21,8 @@ array[1..num_resources] of set of int: resources_allowed;       % (t)[{1, 2, 5},
 array[1..num_machines] of int: offset_machine;
 array[1..num_machines] of int: offset_which_machine;
 
+array[1..num_resources] of set of int: order_resources; 
+
 %% output the tests that have global resources
 array[1..num_tests] of var 1..num_machines: machine_assigned;  % machine_assigned[i] is the machine to which test i is assigned
 array[1..num_tests] of var 0..num_makespan: start;             % Start time for each test
@@ -77,7 +79,24 @@ constraint
 %% define an order for the tests
 %%! it improves the performance a lot
 %% since we are considering only the tests with global resources
-constraint forall(i in 1..num_tests-1)(start[i] <= start[i+1]);
+%% but I should order the resources in ascending order to minimize the restriction of this condition 
+
+% constraint forall(i in 1..num_tests-1)(start[i] <= start[i+1]);
+
+% it can be further improved
+% constraint 
+%         forall(r in 1..num_resources)(
+%             forall(i, j in order_resources[r] where (i < j))(
+%                 start[i] <= start[j]
+%             )
+% );
+
+constraint 
+        forall(r in 1..num_resources)(
+            forall(i, j in resources_allowed[r] where (i < j))(
+                start[i] <= start[j]
+            )
+);
 
 
 %% it seems too restricitve and many times it does not find any solution
