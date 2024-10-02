@@ -12,6 +12,11 @@ import pandas as pd
 import numpy as np
 
 
+from collections import defaultdict
+
+
+## problem to solve the scheduling problem of the t500 tests
+
 
 class Problem:
     
@@ -156,106 +161,154 @@ class Problem:
         
         
         ###! Input data for model A
-        ## It includes only the tests that have resources despite it has restrictions on the machines or not
-        
         self.tests_modelA = [i+1 for i in range(self.num_tests) if self.have_resources[i] == True]
-        self.num_tests_modelA = len(self.tests_modelA)
+        num_tests_modelA = len(self.tests_modelA)
         
-        ## convert the tests to a dictionary to have the index of the test (to start from 1)
-        dictionaire_tests_modelA = {self.tests_modelA[i]:i+1  for i in range(self.num_tests_modelA)}
+        tests_modelA_not_grouped = []
+        tests_modelA_grouped = []
         
-        self.durations_modelA = [self.durations[i-1] for i in self.tests_modelA]
+        for test in self.tests_modelA:
+            if len(self.machines_allowed[test-1]) == self.num_machines:
+                tests_modelA_grouped.append(test)
+            else:
+                tests_modelA_not_grouped.append(test)
+                
+                
+        grouped_super_tests = defaultdict(set)
         
-        self.machines_allowed_modelA = [self.machines_allowed[i-1] for i in self.tests_modelA]
-        resources_allowed_modelA = [{dictionaire_tests_modelA[j] for j in self.resources_allowed[i]} for i in range(self.num_resources)]
-        self.resources_effective_modelA = Problem.filter_sets(resources_allowed_modelA)
+        for test in tests_modelA_grouped:
+            resources = frozenset(self.resources[test-1])
+            grouped_super_tests[resources].add(test)
         
-        self.num_resources_effective = len(self.resources_effective_modelA)
-        self.have_resources_modelA = [self.have_resources[i-1] for i in self.tests_modelA]
+        
+        grouped_super_tests_duration = [sum(self.durations[i-1] for i in tests) for resources, tests in grouped_super_tests.items()]
+        grouped_super_tests_machines = [setAllMachines for _ in range(len(grouped_super_tests))]
+        grouped_super_tests_resources = [set(resources) for resources, tests in grouped_super_tests.items()]
+        
+        not_grouped_tests_duration = [self.durations[i-1] for i in tests_modelA_not_grouped]
+        not_grouped_tests_machines = [self.machines_allowed[i-1] for i in tests_modelA_not_grouped]
+        not_grouped_tests_resources = [set(self.resources[i-1]) for i in tests_modelA_not_grouped]
+        
+        tests_modelA_grouped = [len(tests_modelA_not_grouped)+i+1 for i in range(len(grouped_super_tests))]
+        
+        dict_non_grouped = {tests_modelA_not_grouped[i]:i+1 for i in range(len(tests_modelA_not_grouped))}
+        dict_grouped = {}
+        
+        for i, resources in enumerate(grouped_super_tests):
+            for test in grouped_super_tests[resources]:
+                dict_grouped[test] = len(tests_modelA_not_grouped) + i + 1
+        
+        dict_total = {**dict_non_grouped, **dict_grouped}
+        
+        resources_allowed_modelA = [{dict_total[j] for j in self.resources_allowed[i]} for i in range(self.num_resources)]
+        
+        
+        self.tests_resources_total = not_grouped_tests_resources + grouped_super_tests_resources
+        self.num_tests_total = len(self.tests_resources_total)
+        
+        self.machines_allowed_total = not_grouped_tests_machines + grouped_super_tests_machines
+        
+        self.resources_allowed_total = [set() for _ in range(self.num_resources)]
+        
+        for i in range(len(self.tests_resources_total)):
+            for j in range(self.num_resources):
+                if f'r{j+1}' in self.tests_resources_total[i]:
+                    self.resources_allowed_total[j].add(i+1)
+                    
+        self.tests_duration_total = not_grouped_tests_duration + grouped_super_tests_duration
         
         
         ##! offset in the global resources in the machines that have only one machine allowed - have that into account when checking the global resources
-        self.tests_unique_machines_no_resources = [i+1 for i in range(self.num_tests) if (self.have_resources[i] == False and len(self.machines_allowed[i]) == 1)]
+        # tests_not_modelA = [i+1 for i in range(self.num_tests) if i+1 not in tests_modelA]
+        # self.tests_unique_machines_no_resources = [self.machines_allowed[i-1] for i in tests_not_modelA if len(self.machines_allowed[i-1]) == 1]
+        # print("tests_unique_machines_no_resources: ", self.tests_unique_machines_no_resources)
         
         self.offset_machine = [set() for _ in range(self.num_machines)]
-        for test in self.tests_unique_machines_no_resources:
-            self.offset_machine[list(self.machines_allowed[test-1])[0]-1].add(self.durations[test-1])
+        # for test in self.tests_unique_machines_no_resources:
+        #     self.offset_machine[list(self.machines_allowed[test-1])[0]-1].add(self.durations[test-1])
         
         self.offset_machine = [sum(offset) for offset in self.offset_machine]
         self.offset_which_machine = [i+1 if self.offset_machine[i] > 0 else 0 for i in range(self.num_machines)]
         
-        ##!? describe the case where there is at at least with unique restricton for each machine
-        ##!? by default the offset from the last machine is zero
-        if len(self.offset_which_machine) == self.num_machines:
-            self.offset_which_machine[-1] = 0
+        # ##!? describe the case where there is at at least with unique restricton for each machine
+        # ##!? by default the offset from the last machine is zero
+        # if len(self.offset_which_machine) == self.num_machines:
+        #     self.offset_which_machine[-1] = 0
         
         
-        # ##!? Idea - restrict the number of machines to the number of tests for the global resources
-        # ##!? seems not improve the efficiency
+        # # ##!? Idea - restrict the number of machines to the number of tests for the global resources
+        # # ##!? seems not improve the efficiency
 
-        # self.set_non_common_machines = set()
-        # for i in range(self.num_tests_modelA):
-        #     if len(self.machines_allowed_modelA[i]) < self.num_machines:
-        #         self.set_non_common_machines.update(self.machines_allowed_modelA[i])
+        # # self.set_non_common_machines = set()
+        # # for i in range(self.num_tests_modelA):
+        # #     if len(self.machines_allowed_modelA[i]) < self.num_machines:
+        # #         self.set_non_common_machines.update(self.machines_allowed_modelA[i])
         
-        # set_diff_elements = setAllMachines - self.set_non_common_machines
+        # # set_diff_elements = setAllMachines - self.set_non_common_machines
         
-        # while len(self.set_non_common_machines) < self.num_resources:
-        #     self.set_non_common_machines.add(set_diff_elements.pop())
+        # # while len(self.set_non_common_machines) < self.num_resources:
+        # #     self.set_non_common_machines.add(set_diff_elements.pop())
         
-        # self.machines_effective_allowed_modelA = [self.set_non_common_machines if len(self.machines_allowed_modelA[i]) == len(setAllMachines) else self.machines_allowed_modelA[i] for i in range(self.num_tests_modelA)]
+        # # self.machines_effective_allowed_modelA = [self.set_non_common_machines if len(self.machines_allowed_modelA[i]) == len(setAllMachines) else self.machines_allowed_modelA[i] for i in range(self.num_tests_modelA)]
         
         
-        ##! Ideas that seem not to improve the efficiency, but worth to keep in mind and explore later
-        # self.test_resources_modelA_no_restriction_machines = set(i+1 for i in range(self.num_tests_modelA) if len(self.machines_allowed_modelA[i]) == self.num_machines)
-        # print(self.test_resources_modelA_no_restriction_machines)
+        # ##! Ideas that seem not to improve the efficiency, but worth to keep in mind and explore later
+        # # self.test_resources_modelA_no_restriction_machines = set(i+1 for i in range(self.num_tests_modelA) if len(self.machines_allowed_modelA[i]) == self.num_machines)
+        # # print(self.test_resources_modelA_no_restriction_machines)
         
-        # self.tests_no_model_A = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
+        # # self.tests_no_model_A = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
         
-        # self.tests_restriction_machine_no_model_A = [i+1 for i in range(self.num_tests) if (i+1 in self.tests_no_model_A and len(self.machines_allowed[i]) != self.num_machines)]
-        # self.machines_restriction_no_model_A = set.union(*[self.machines_allowed[i-1] for i in self.tests_restriction_machine_no_model_A])
-        # self.machines_effective_per_resource = [[self.machines_allowed_modelA[i-1] for i in self.resources_effective_modelA[j]] for j in range(self.num_resources_effective)]
+        # # self.tests_restriction_machine_no_model_A = [i+1 for i in range(self.num_tests) if (i+1 in self.tests_no_model_A and len(self.machines_allowed[i]) != self.num_machines)]
+        # # self.machines_restriction_no_model_A = set.union(*[self.machines_allowed[i-1] for i in self.tests_restriction_machine_no_model_A])
+        # # self.machines_effective_per_resource = [[self.machines_allowed_modelA[i-1] for i in self.resources_effective_modelA[j]] for j in range(self.num_resources_effective)]
         
-        # # print(self.machines_effective_per_resource[0])
+        # # # print(self.machines_effective_per_resource[0])
         
-        # self.machines_effective_per_resource_common = [Problem.common_elements_sets(self.machines_effective_per_resource[i]) for i in range(self.num_resources_effective)]
+        # # self.machines_effective_per_resource_common = [Problem.common_elements_sets(self.machines_effective_per_resource[i]) for i in range(self.num_resources_effective)]
         
-        # union_machines_effective_per_resource_common = set.union(*self.machines_effective_per_resource_common) - self.machines_restriction_no_model_A
+        # # union_machines_effective_per_resource_common = set.union(*self.machines_effective_per_resource_common) - self.machines_restriction_no_model_A
         
-        # print("union: ", union_machines_effective_per_resource_common)
+        # # print("union: ", union_machines_effective_per_resource_common)
     
-
-    def load_modelA(self, solver_name="cbc"):
-        
-        ## load the model and the solver
-        model = Model('./model/modelA.mzn')
-        solver = Solver.lookup(solver_name)
-        instance = Instance(solver, model)
-        
-        ## load the data into the model
-        instance["num_tests"] = self.num_tests_modelA
-        instance["num_machines"] = self.num_machines
-        instance["num_resources"] = self.num_resources_effective
-        
-        instance["durations"] = self.durations_modelA
-        
-        instance["machines_allowed"] = self.machines_allowed_modelA
-        # instance["machines_allowed"] = self.machines_effective_allowed_modelA
-        
-        instance["resources_allowed"] = self.resources_effective_modelA
-        
-        instance["offset_machine"] = self.offset_machine
-        instance["offset_which_machine"] = self.offset_which_machine
-        
-        
-        print("model A:")
-        print("effective resources: ", self.resources_effective_modelA)
-        print("num_tests: ", self.num_tests_modelA)
-        print("num_machines: ", self.num_machines)
-        
-        ## solve the model
-        self.result = instance.solve()
     
+    
+    def load_modelA_total(self, solver_name="cbc"):
+            
+            ## model A
+            print("model A")
+            print("num_tests: ", self.num_tests_total)
+            print("num_machines: ", self.num_machines)
+            print("num_resources: ", self.num_resources)
+            
+            print("durations: ", self.tests_duration_total)
+            print("resources: ", self.resources_allowed_total)
+            
+            ## load the model and the solver
+            model = Model('./model/modelA.mzn')
+            solver = Solver.lookup(solver_name)
+            instance = Instance(solver, model)
+            
+            ## load the data into the model
+            instance["num_tests"] = self.num_tests_total
+            instance["num_machines"] = self.num_machines
+            instance["num_resources"] = self.num_resources
+            
+            instance["durations"] = self.tests_duration_total
+            
+            instance["machines_allowed"] = self.machines_allowed_total
+            # instance["machines_allowed"] = self.machines_effective_allowed_modelA
+            
+            instance["resources_allowed"] = self.resources_allowed_total
+            
+            instance["offset_machine"] = self.offset_machine
+            instance["offset_which_machine"] = self.offset_which_machine
+            
+            ## solve the model
+            self.result = instance.solve()
+            
+            print()
+            print("solution")
+            print(self.result)
     
     ##! Not used with the greedy algorithm
     def load_modelB(self, solver_name="cbc"):
@@ -324,7 +377,7 @@ class Problem:
         
         print("model A results")
         
-        print("effective resources: ", self.resources_effective_modelA)
+        # print("effective resources: ", self.resources_effective_modelA)
         print("makespan A: ", self.makespan_A)
         print("machines assigned A: ", self.machines_assigned_A)
         print("start times A: ", self.start_times_A)
@@ -340,12 +393,12 @@ class Problem:
         
         ## intial times of tests from model A 
         self.s_init_vec = self.start_times_A
-        self.s_end_vec = [self.start_times_A[i] + self.durations_modelA[i] for i in range(self.num_tests_modelA)]
-        self.n_s = self.num_tests_modelA
+        self.s_end_vec = [self.start_times_A[i] + self.tests_duration_total[i] for i in range(self.num_tests_total)]
+        self.n_s = self.num_tests_total
         
 
         #! create the list of the machines assigned in model A and sort the data
-        s_data_sorted = sorted([(self.s_init_vec[i], self.s_end_vec[i], self.machines_assigned_A[i]) for i in range(self.num_tests_modelA)]\
+        s_data_sorted = sorted([(self.s_init_vec[i], self.s_end_vec[i], self.machines_assigned_A[i]) for i in range(self.num_tests_total)]\
             , key=lambda x: x[2])
 
         # Group the sorted data based on the third component and maintain internal order
@@ -443,9 +496,16 @@ class Problem:
                 heapq.heappush(machine_availability, slot)
 
 
-        tasks_assignment_A = {self.tests_modelA[i]: (self.machines_assigned_A[i], self.start_times_A[i]) for i in range(self.num_tests_modelA)}
-        self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_B}
-        self.total_makespan = max([self.tasks_assignment[task][1] + self.durations[task-1] for task in self.tasks_assignment])
+        tasks_assignment_A = {i+1: (self.machines_assigned_A[i], self.start_times_A[i]) for i in range(self.num_tests_total)}
+        # self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_B}
+        
+        print("len tasks A: ", len(tasks_assignment_A))
+        print("num tests total: ", self.num_tests_total)
+        
+        self.tasks_assignment = tasks_assignment_A
+        
+        
+        self.total_makespan = max([self.tasks_assignment[task][1] + self.tests_duration_total[task-1] for task in self.tasks_assignment])
         
         
         if self.total_makespan > self.makespan_A:
@@ -460,8 +520,8 @@ class Problem:
             ## but still we could minimize packing
         
         
-        print("final tasks' assignment: ", self.tasks_assignment)
-        print()
+        # print("final tasks' assignment: ", self.tasks_assignment)
+        # print()
     
     
     def checker_solution(self):
@@ -475,7 +535,7 @@ class Problem:
                 print("Error: start time is negative")
                 return False
             
-            if machine_id not in self.machines_allowed[task-1]:
+            if machine_id not in self.machines_allowed_total[task-1]:
                 print("Error: machine not allowed")
                 return False
             
@@ -487,7 +547,7 @@ class Problem:
             for task2 in self.tasks_assignment:
                 if task != task2:
                     machine_id2, start_time2 = self.tasks_assignment[task2]
-                    duration2 = self.durations[task2-1]
+                    duration2 = self.tests_durations_total[task2-1]
                     
                     if machine_id == machine_id2:
                         if (start_time >= start_time2 and start_time < start_time2 + duration2) or (start_time + duration > start_time2 and start_time + duration <= start_time2 + duration2):
@@ -503,7 +563,7 @@ class Problem:
                 for task2 in self.tasks_assignment:
                     if task != task2:
                         machine_id2, start_time2 = self.tasks_assignment[task2]
-                        duration2 = self.durations[task2-1]
+                        duration2 = self.tests_duration_total[task2-1]
                         
                         if resource in self.resources[task2-1] and resource != 'e':
                             if (start_time >= start_time2 and start_time < start_time2 + duration2) or (start_time + duration > start_time2 and start_time + duration <= start_time2 + duration2):
@@ -540,8 +600,11 @@ class Problem:
 
     def crete_plot_file(self):
         
-        tasks_data = {task: (self.tasks_assignment[task][0], self.tasks_assignment[task][1], self.durations[task-1], self.resources[task-1]) for task in self.tasks_assignment}
+        tasks_data = {task: (self.tasks_assignment[task][0], self.tasks_assignment[task][1], self.tests_duration_total[task-1], self.tests_resources_total[task-1]) for task in self.tasks_assignment}
 
+        print("task_data: ", tasks_data)
+        print("lne tasks: ", len(tasks_data))   
+        
         machines = [f"m{tasks_data[task][0]}" for task in tasks_data]
         start_times = [tasks_data[task][1] for task in tasks_data]
         durations = [tasks_data[task][2] for task in tasks_data]
@@ -560,7 +623,7 @@ class Problem:
 
         for i, task in enumerate(df.itertuples()):
             ax.barh(task.Machine, task.Duration, left=task.Start, align='center')
-            ax.text(task.Start + task.Duration / 2, task.Machine, f"{task.Task} - {task.Resource}", va='center', ha='center', color='black', fontweight='bold')
+            ax.text(task.Start + task.Duration / 2, task.Machine, f"{task.Task}", va='center', ha='center', color='black', fontweight='bold')
 
         # Set labels and title
         ax.set_xlabel('Time')
@@ -586,14 +649,18 @@ if __name__ == "__main__":
     
     
     problem.input_data_modelA()
-    problem.load_modelA()
+    problem.load_modelA_total()
+    
+    time_end = time.time()
+    
+    # print(f"Time: {time_end - time_start} secs")
     
     problem.gready_algorithm_modelB()
     
-    print("Is solution:", problem.checker_solution())
+    # print("Is solution:", problem.checker_solution())
     
     problem.create_output_file()
-    time_end = time.time()
+    # time_end = time.time()
     
     problem.crete_plot_file()
     
