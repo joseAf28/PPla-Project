@@ -308,63 +308,7 @@ class Problem:
             
             print()
             print("solution")
-            print(self.result)
-    
-    ##! Not used with the greedy algorithm
-    def load_modelB(self, solver_name="cbc"):
-        
-        self.makespan_A = self.result["makespan"]
-        self.machines_assigned_A = self.result["machine_assigned"]
-        self.start_times_A = self.result["start"]
-        
-        print("model A results")
-        
-        print("effective resources: ", self.resources_effective_modelA)
-        print("makespan A: ", self.makespan_A)
-        print("machines assigned A: ", self.machines_assigned_A)
-        print("start times A: ", self.start_times_A)
-        
-        print()
-        
-        ## list tests with machine restrictions and not included in model A
-        self.tests_modelB = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
-        self.num_tests_modelB = len(self.tests_modelB)
-        
-        self.durations_modelB = [self.durations[i-1] for i in self.tests_modelB]
-        self.machines_allowed_modelB = [self.machines_allowed[i-1] for i in self.tests_modelB]
-        
-        ## intial times of tests from model A 
-        self.s_init_vec = self.start_times_A
-        self.s_end_vec = [self.start_times_A[i] + self.durations_modelA[i] for i in range(self.num_tests_modelA)]
-        self.n_s = self.num_tests_modelA
-        
-        
-        ##! load model
-        model = Model('./model/modelB.mzn')
-        solver = Solver.lookup(solver_name)
-        instance = Instance(solver, model)
-        
-        ## load the data into the model
-        instance["num_tests_A"] = self.num_tests_modelA
-        instance["num_tests"] = self.num_tests_modelB
-        instance["num_machines"] = self.num_machines
-        
-        instance["durations"] = self.durations_modelB
-        
-        instance["machines_allowed"] = self.machines_allowed_modelB
-        
-        instance["n_s"] = self.n_s
-        
-        instance["s_init_vec"] = self.s_init_vec
-        instance["s_end_vec"] = self.s_end_vec
-        
-        instance["machine_assigned_A"] = self.machines_assigned_A
-        
-        
-        self.result_B = instance.solve()
-        
-        print("results model B: ", self.result_B)
-        
+            print(self.result)    
     
     
     ##! for the second part of the problem, instead of using the minizinc model, I will use a greedy algorithm
@@ -496,6 +440,10 @@ class Problem:
                 heapq.heappush(machine_availability, slot)
 
 
+        print
+        print("task_assignment_B: ", tasks_assignment_B)
+        print()
+        
         tasks_assignment_A = {i+1: (self.machines_assigned_A[i], self.start_times_A[i]) for i in range(self.num_tests_total)}
         # self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_B}
         
