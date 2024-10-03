@@ -444,7 +444,9 @@ class Problem:
 
 
         tasks_assignment_A = {self.tests_modelA[i]: (self.machines_assigned_A[i], self.start_times_A[i]) for i in range(self.num_tests_modelA)}
+        
         self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_B}
+        
         self.total_makespan = max([self.tasks_assignment[task][1] + self.durations[task-1] for task in self.tasks_assignment])
         
         
