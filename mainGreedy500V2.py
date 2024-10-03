@@ -440,55 +440,37 @@ class Problem:
                 heapq.heappush(machine_availability, slot)
 
 
-        print
-        print("task_assignment_B: ", tasks_assignment_B)
-        print()
-        
         tasks_assignment_A = {i+1: (self.machines_assigned_A[i], self.start_times_A[i]) for i in range(self.num_tests_total)}
-        self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_B}
+        shiftA = len(tasks_assignment_A)
         
-        print("len tasks A: ", len(tasks_assignment_A))
-        print("num tests total: ", self.num_tests_total)
         
-        # self.tasks_assignment = tasks_assignment_A
+        tasks_assignment_aux_B = {i+1+shiftA: task for i, task in enumerate(tasks_assignment_B.values())}
+        self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_aux_B}
         
         
         self.tests_duration_total_both_models = self.tests_duration_total + self.durations_modelB
         self.machines_total_both_models = self.resources_allowed_total + self.machines_allowed_modelB
         
-        self.tests_resources_total_both_models = self.resources_allowed_total
+        self.total_makespan = max([self.tasks_assignment[task][1] + self.tests_duration_total_both_models[task-1] for task in self.tasks_assignment])
         
         
-        print("resources: ", self.tests_resources_total_both_models)
-        
-        print("duration: ", len(self.tests_duration_total_both_models))
-        print("task assignment: ", len(self.tasks_assignment))
-        print("len A: ", len(tasks_assignment_A))
-        print("len B: ", len(tasks_assignment_B))
-        
-        
-        
-        
-        # self.total_makespan = max([self.tasks_assignment[task][1] + self.tests_duration_total_both_models[task-1] for task in self.tasks_assignment])
-        
-        
-        # if self.total_makespan > self.makespan_A:
-        #     print("best solution NOT garanteed")
-        #     print("makespan A: ", self.makespan_A)
-        #     print("makespan Total: ", self.total_makespan)
-        # else: 
-        #     print("best solution garanteed")
-        #     print("makespan A: ", self.makespan_A)
-        #     print("makespan Total: ", self.total_makespan)
+        if self.total_makespan > self.makespan_A:
+            print("best solution NOT garanteed")
+            print("makespan A: ", self.makespan_A)
+            print("makespan Total: ", self.total_makespan)
+        else: 
+            print("best solution garanteed")
+            print("makespan A: ", self.makespan_A)
+            print("makespan Total: ", self.total_makespan)
             
-            ## but still we could minimize packing
-        
         
         # print("final tasks' assignment: ", self.tasks_assignment)
         # print()
     
     
     def checker_solution(self):
+        
+        ##! it doesnt work for now
         
         ##! check if the solution is correct
         for task in self.tasks_assignment:
@@ -544,6 +526,8 @@ class Problem:
     
     def create_output_file(self):
         
+        ##! it does not work for now
+        
         with open(self.output_file_name, 'w') as output_file:
             output_file.write(f"% Makespan : {self.total_makespan}\n")
             
@@ -562,25 +546,25 @@ class Problem:
 
 
 
-    def crete_plot_file(self):
+    def create_plot_file(self):
         
-        tasks_data = {task: (self.tasks_assignment[task][0], self.tasks_assignment[task][1], self.tests_duration_total_both_models[task-1], self.tests_resources_total[task-1]) for task in self.tasks_assignment}
+        tasks_data = {task: (self.tasks_assignment[task][0], self.tasks_assignment[task][1], self.tests_duration_total_both_models[task-1]) for task in self.tasks_assignment}
 
-        print("task_data: ", tasks_data)
-        print("lne tasks: ", len(tasks_data))   
+        # print("task_data: ", tasks_data)
+        # print("lne tasks: ", len(tasks_data))   
         
         machines = [f"m{tasks_data[task][0]}" for task in tasks_data]
         start_times = [tasks_data[task][1] for task in tasks_data]
         durations = [tasks_data[task][2] for task in tasks_data]
         tasks = [f"t{task}" for task in tasks_data]
-        resources = [tasks_data[task][3] if tasks_data[task][3] != ['e']  else [''] for task in tasks_data]
+        # resources = [tasks_data[task][3] if tasks_data[task][3] != ['e']  else [''] for task in tasks_data]
         
         df = pd.DataFrame({
             'Machine': machines,
             'Task': tasks,
             'Start': start_times,
-            'Duration': durations,
-            'Resource': resources
+            'Duration': durations
+            # 'Resource': resources
         })
 
         fig, ax = plt.subplots(figsize=(20, 20))
@@ -615,17 +599,15 @@ if __name__ == "__main__":
     problem.input_data_modelA()
     problem.load_modelA_total()
     
-    time_end = time.time()
-    
-    # print(f"Time: {time_end - time_start} secs")
     
     problem.gready_algorithm_modelB()
+    
+    time_end = time.time()
     
     # print("Is solution:", problem.checker_solution())
     
     # problem.create_output_file()
-    # time_end = time.time()
     
-    # problem.crete_plot_file()
+    problem.create_plot_file()
     
     print(f"Time: {time_end - time_start} secs")
