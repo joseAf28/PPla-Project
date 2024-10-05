@@ -174,6 +174,76 @@ class Problem:
         self.have_resources_modelA = [self.have_resources[i-1] for i in self.tests_modelA]
         
         
+        ##! machine pre-assigned
+        ##! not very smart yet
+        
+        print()
+        print("effective resources: ", self.resources_effective_modelA)
+        print()
+        
+        ## assign first tests with machines restrictions
+        counter_machine_assignment = [0 for _ in range(self.num_machines)]
+        
+        self.machines_pre_assigned = [0 for _ in range(self.num_tests_modelA)]
+        
+        for i in range(self.num_tests_modelA):
+            if len(self.machines_allowed_modelA[i]) < self.num_machines:
+                (self.machines_pre_assigned[i]) = list(self.machines_allowed_modelA[i])[0]
+        
+        
+        machine_value = 1
+        
+        for i in range(self.num_tests_modelA):
+            if len(self.machines_allowed_modelA[i]) == self.num_machines:
+                (self.machines_pre_assigned[i]) = machine_value
+                
+                machine_value += 1
+                if machine_value > self.num_machines:
+                    machine_value = 1
+        
+        
+        ##! assign values for the start time in the first resource
+        
+        lenghts_resources = [len(self.resources_effective_modelA[i]) for i in range(self.num_resources_effective)]
+        index_max_resource = lenghts_resources.index(max(lenghts_resources))
+        
+        tests_resource = list(self.resources_effective_modelA[index_max_resource])
+        
+        
+        self.start_pre_assigned = [0 for _ in range(self.num_tests_modelA)]
+        
+        self.start_pre_assigned[tests_resource[0]-1] = 0
+        self.start_pre_assigned[tests_resource[1]-1] = self.durations_modelA[tests_resource[0]-1]
+        
+        old_task = tests_resource[1]
+        for i, task in enumerate(tests_resource):
+            if i > 1:
+                self.start_pre_assigned[task-1] = self.durations_modelA[task-2] + self.start_pre_assigned[old_task-1] 
+                
+                old_task = task
+        
+        for i in range(self.num_tests_modelA):
+            if self.start_pre_assigned[i] == 0:
+                self.start_pre_assigned[i] = -2
+                
+        self.start_pre_assigned[tests_resource[0]-1] = 0
+        
+        print()
+        print("durations: ", self.durations_modelA)
+        print("start pre-assigned: ", self.start_pre_assigned)
+        print()
+        
+        
+        # print()
+        # print("machines pre-assigned: ", self.machines_pre_assigned)
+        
+        # print()
+        
+        
+        ## order starts
+        
+        
+        
         ##! offset in the global resources in the machines that have only one machine allowed - have that into account when checking the global resources
         self.tests_unique_machines_no_resources = [i+1 for i in range(self.num_tests) if (self.have_resources[i] == False and len(self.machines_allowed[i]) == 1)]
         
@@ -239,7 +309,13 @@ class Problem:
         
         instance["durations"] = self.durations_modelA
         
+        # instance["machines_allowed"] = self.machines_allowed_modelA
         instance["machines_allowed"] = self.machines_allowed_modelA
+        instance["machines_pre_assigned"] = self.machines_pre_assigned
+        
+        
+        instance["start_pre_assigned"] = self.start_pre_assigned
+        
         # instance["machines_allowed"] = self.machines_effective_allowed_modelA
         
         instance["resources_allowed"] = self.resources_effective_modelA
@@ -471,6 +547,9 @@ class Problem:
             
             if machine_id not in self.machines_allowed[task-1]:
                 print("Error: machine not allowed")
+                
+                print(task, machine_id)
+                print(self.machines_allowed[task-1])
                 return False
             
             if start_time + duration > self.total_makespan:
@@ -582,13 +661,17 @@ if __name__ == "__main__":
     problem.input_data_modelA()
     problem.load_modelA()
     
+    time_partial = time.time()
+    
     problem.gready_algorithm_modelB()
     
     print("Is solution:", problem.checker_solution())
     
     problem.create_output_file()
-    time_end = time.time()
-    
     problem.crete_plot_file()
     
-    print(f"Time: {time_end - time_start} secs")
+    time_end = time.time()
+    
+    print(f"Time A: {time_partial - time_start} secs")
+    print(f"Time B: {time_end - time_partial} secs")
+    print(f"Total time: {time_end - time_start} secs")

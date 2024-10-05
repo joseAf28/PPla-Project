@@ -21,6 +21,12 @@ array[1..num_resources] of set of int: resources_allowed;       % (t)[{1, 2, 5},
 array[1..num_machines] of int: offset_machine;
 array[1..num_machines] of int: offset_which_machine;
 
+
+array[1..num_tests] of int: machines_pre_assigned; % machine_pre_assigned[i] is the machine to which test i is pre-assigned
+
+array[1..num_tests] of int: start_pre_assigned; % start_pre_assigned[i] is the start time of test i 
+
+
 %% output the tests that have global resources
 array[1..num_tests] of var 1..num_machines: machine_assigned;  % machine_assigned[i] is the machine to which test i is assigned
 array[1..num_tests] of var 0..num_makespan: start;             % Start time for each test
@@ -40,9 +46,24 @@ predicate exclusive2(set of int: s) =
 
 % Constraints
 %Each test must be assigned to an allowed machine
-constraint 
+% constraint 
+%         forall(i in 1..num_tests)(
+%             machine_assigned[i] in machines_allowed[i]
+%         );
+
+
+constraint
         forall(i in 1..num_tests)(
-            machine_assigned[i] in machines_allowed[i]
+            machine_assigned[i] == machines_pre_assigned[i]
+        );
+
+constraint
+        forall(i in 1..num_tests)(
+            if start_pre_assigned[i] > -1 then
+                start[i] == start_pre_assigned[i]
+            else
+                true
+            endif
         );
 
 
@@ -58,10 +79,10 @@ constraint
 
 
 % offset in the machine schedule in the case that a test must be assigned to a specific machine
-constraint 
-        forall(i in 1..num_tests, m in 1..num_machines)(
-            (machine_assigned[i] == offset_which_machine[m]) ->
-            (start[i] >= offset_machine[m]));
+% constraint 
+%         forall(i in 1..num_tests, m in 1..num_machines)(
+%             (machine_assigned[i] == offset_which_machine[m]) ->
+%             (start[i] >= offset_machine[m]));
 
 
 % tests cannot overlap in the same machine
@@ -73,11 +94,11 @@ constraint
 % );
 
 
-constraint 
-        forall(t1 in 1..num_tests, t2 in 1..num_tests where t1 < t2)(
-            (machine_assigned[t1] == machine_assigned[t2]) -> 
-            (start[t1] + durations[t1] <= start[t2] \/ start[t2] + durations[t2] <= start[t1])
-);
+% constraint 
+%         forall(t1 in 1..num_tests, t2 in 1..num_tests where t1 < t2)(
+%             (machine_assigned[t1] == machine_assigned[t2]) -> 
+%             (start[t1] + durations[t1] <= start[t2] \/ start[t2] + durations[t2] <= start[t1])
+% );
 
 
 
@@ -99,13 +120,13 @@ constraint
 % );
 
 
-%%? important
-constraint 
-        forall(r in 1..num_resources)(
-            forall(i, j in resources_allowed[r] where (i < j))(
-                start[i] <= start[j]
-            )
-);
+%%? important if start is not pre-assigned
+% constraint 
+%         forall(r in 1..num_resources)(
+%             forall(i, j in resources_allowed[r] where (i < j))(
+%                 start[i] <= start[j]
+%             )
+% );
 
 
 %% it seems too restricitve and many times it does not find any solution
