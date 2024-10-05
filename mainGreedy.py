@@ -240,30 +240,51 @@ class Problem:
         self.machines_pre_assigned_A = [self.machines_pre_assigned[i-1] for i in self.new_tasks_modelA]
         self.resources_effective_modelA_A = [self.resources_effective_modelA[i] for i in range(self.num_resources_effective) if i != index_max_resource]
         
-        # print()
-        # print("machines pre-assigned: ", self.machines_pre_assigned)
         
-        # print()
+        end_pre_assigned = [self.start_pre_assigned[i] + self.durations_modelA[i] if self.start_pre_assigned[i] > -2 else -2 for i in range(self.num_tests_modelA)]
+        
+        start_pre_assigned_2 = [self.start_pre_assigned[i] for i in range(self.num_tests_modelA) if self.start_pre_assigned[i] > -2]
+        end_pre_assigned_2 = [end_pre_assigned[i] for i in range(self.num_tests_modelA) if self.start_pre_assigned[i] > -2]
+        
+        max_number = sum(self.durations)
+        print(max_number)
+        
+        gaps_start = list()
+        
+        for i in range(len(start_pre_assigned_2)-1):
+            if start_pre_assigned_2[i+1] - end_pre_assigned_2[i] > 0:
+                gaps_start.append([end_pre_assigned_2[i], start_pre_assigned_2[i+1]])
+                
+        if start_pre_assigned_2[0] > 0:
+            gaps_start.append([0, start_pre_assigned_2[0]])
+            
+        if end_pre_assigned_2[-1] < max_number:
+            gaps_start.append([end_pre_assigned_2[-1], max_number])
+        
+        print()
+        print("start pre-assigned: ", start_pre_assigned_2)
+        print("end pre-assigned: ", end_pre_assigned_2)
+        print("gaps: ", gaps_start)
+        print()
+        
+    
         
         
-        ## order starts
         
+        # ##! offset in the global resources in the machines that have only one machine allowed - have that into account when checking the global resources
+        # self.tests_unique_machines_no_resources = [i+1 for i in range(self.num_tests) if (self.have_resources[i] == False and len(self.machines_allowed[i]) == 1)]
         
+        # self.offset_machine = [set() for _ in range(self.num_machines)]
+        # for test in self.tests_unique_machines_no_resources:
+        #     self.offset_machine[list(self.machines_allowed[test-1])[0]-1].add(self.durations[test-1])
         
-        ##! offset in the global resources in the machines that have only one machine allowed - have that into account when checking the global resources
-        self.tests_unique_machines_no_resources = [i+1 for i in range(self.num_tests) if (self.have_resources[i] == False and len(self.machines_allowed[i]) == 1)]
+        # self.offset_machine = [sum(offset) for offset in self.offset_machine]
+        # self.offset_which_machine = [i+1 if self.offset_machine[i] > 0 else 0 for i in range(self.num_machines)]
         
-        self.offset_machine = [set() for _ in range(self.num_machines)]
-        for test in self.tests_unique_machines_no_resources:
-            self.offset_machine[list(self.machines_allowed[test-1])[0]-1].add(self.durations[test-1])
-        
-        self.offset_machine = [sum(offset) for offset in self.offset_machine]
-        self.offset_which_machine = [i+1 if self.offset_machine[i] > 0 else 0 for i in range(self.num_machines)]
-        
-        ##!? describe the case where there is at at least with unique restricton for each machine
-        ##!? by default the offset from the last machine is zero
-        if len(self.offset_which_machine) == self.num_machines:
-            self.offset_which_machine[-1] = 0
+        # ##!? describe the case where there is at at least with unique restricton for each machine
+        # ##!? by default the offset from the last machine is zero
+        # if len(self.offset_which_machine) == self.num_machines:
+        #     self.offset_which_machine[-1] = 0
         
         
         # ##!? Idea - restrict the number of machines to the number of tests for the global resources
@@ -348,18 +369,22 @@ class Problem:
         instance["durations"] = self.new_duarations_modelA 
         
         # instance["machines_allowed"] = self.machines_allowed_modelA
-        instance["machines_allowed"] = self.machines_allowed_modelA[:self.num_new_tasks_modelA]
+        # instance["machines_allowed"] = self.machines_allowed_modelA[:self.num_new_tasks_modelA]
         instance["machines_pre_assigned"] = self.machines_pre_assigned_A
         
+        
+        instance["gaps_start"] = self.gaps_start
+        instance["num_gaps"] = len(self.gaps_start)
+        instance["max_makespan"] = sum(self.durations)
         
         # instance["start_pre_assigned"] = self.start_pre_assigned
         
         # instance["machines_allowed"] = self.machines_effective_allowed_modelA
         
-        instance["resources_allowed"] = self.resources_effective_modelA
+        # instance["resources_allowed"] = self.resources_effective_modelA_A
         
-        instance["offset_machine"] = self.offset_machine
-        instance["offset_which_machine"] = self.offset_which_machine
+        # instance["offset_machine"] = self.offset_machine
+        # instance["offset_which_machine"] = self.offset_which_machine
         
         ## solve the model
         self.result = instance.solve()

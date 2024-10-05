@@ -12,19 +12,21 @@ int: num_resources; % Number of global resources
 
 array[1..num_tests] of int: durations;                         % Duration of each global test
 
-int: num_makespan = sum(i in 1..num_tests)(durations[i]);      % Makespan estimate: all tests occur in the same machine
+% int: num_makespan = sum(i in 1..num_tests)(durations[i]);      % Makespan estimate: all tests occur in the same machine
+
+int: num_makespan;      % Makespan estimate: all tests occur in the same machine
 % Think about a more advanced way of calculating the makespan
 
-array[1..num_tests] of set of int: machines_allowed;            % ex: [{1, 2}, {1, 2, 3}, {3}, .. ]
-array[1..num_resources] of set of int: resources_allowed;       % (t)[{1, 2, 5}, {5, 7}, ..., {9}]
+% array[1..num_tests] of set of int: machines_allowed;            % ex: [{1, 2}, {1, 2, 3}, {3}, .. ]
+% array[1..num_resources] of set of int: resources_allowed;       % (t)[{1, 2, 5}, {5, 7}, ..., {9}]
 
-array[1..num_machines] of int: offset_machine;
-array[1..num_machines] of int: offset_which_machine;
+% array[1..num_machines] of int: offset_machine;
+% array[1..num_machines] of int: offset_which_machine;
 
 
 array[1..num_tests] of int: machines_pre_assigned; % machine_pre_assigned[i] is the machine to which test i is pre-assigned
 
-array[1..num_tests] of int: start_pre_assigned; % start_pre_assigned[i] is the start time of test i 
+% array[1..num_tests] of int: start_pre_assigned; % start_pre_assigned[i] is the start time of test i 
 
 
 %% output the tests that have global resources
@@ -33,6 +35,9 @@ array[1..num_tests] of var 0..num_makespan: start;             % Start time for 
 
 var 0..num_makespan: makespan; % The makespan (time when the last test finishes)
 
+int: num_gaps;
+
+array[1..num_gaps, 1..2] of int: gaps_start; % gaps[i, 1] is the start of the gap i, gaps[i, 2] is the end of the gap i
 
 
 predicate exclusive(set of int: s) =
@@ -57,15 +62,21 @@ constraint
             machine_assigned[i] == machines_pre_assigned[i]
         );
 
+% constraint
+%         forall(i in 1..num_tests)(
+%             if start_pre_assigned[i] > -1 then
+%                 start[i] == start_pre_assigned[i]
+%             else
+%                 true
+%             endif
+%         );
+
 constraint
         forall(i in 1..num_tests)(
-            if start_pre_assigned[i] > -1 then
-                start[i] == start_pre_assigned[i]
-            else
-                true
-            endif
+            exists(s in 1..num_gaps)(
+                start[i] >= gaps_start[s, 1] /\ start[i] + durations[i] <= gaps_start[s, 2]
+            )
         );
-
 
 %Global resources: tests cannot overlap on the same resource
 constraint
