@@ -33,6 +33,11 @@ predicate exclusive(set of int: s) =
     disjunctive([start[i] | i in s], [durations[i] | i in s]);
 
 
+predicate exclusive2(set of int: s) =
+    cumulative([start[i] | i in s], [durations[i] | i in s], [1 | i in s], 1);
+
+
+
 % Constraints
 %Each test must be assigned to an allowed machine
 constraint 
@@ -66,11 +71,14 @@ constraint
 %             (machine_assigned[t1] == machine_assigned[t2]) -> 
 %             (start[t1] + durations[t1] <= start[t2] \/ start[t2] + durations[t2] <= start[t1])
 % );
+
+
 constraint 
         forall(t1 in 1..num_tests, t2 in 1..num_tests where t1 < t2)(
             (machine_assigned[t1] == machine_assigned[t2]) -> 
-            (start[t1] + durations[t1] <= start[t2])
+            (start[t1] + durations[t1] <= start[t2] \/ start[t2] + durations[t2] <= start[t1])
 );
+
 
 
 
@@ -90,6 +98,8 @@ constraint
 %             )
 % );
 
+
+%%? important
 constraint 
         forall(r in 1..num_resources)(
             forall(i, j in resources_allowed[r] where (i < j))(
