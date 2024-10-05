@@ -234,6 +234,12 @@ class Problem:
         print()
         
         
+        self.new_tasks_modelA = [i+1 for i in range(self.num_tests_modelA) if self.start_pre_assigned[i] == -2]
+        self.num_new_tasks_modelA = len(self.new_tasks_modelA)
+        self.new_duarations_modelA = [self.durations_modelA[i-1] for i in self.new_tasks_modelA]
+        self.machines_pre_assigned_A = [self.machines_pre_assigned[i-1] for i in self.new_tasks_modelA]
+        self.resources_effective_modelA_A = [self.resources_effective_modelA[i] for i in range(self.num_resources_effective) if i != index_max_resource]
+        
         # print()
         # print("machines pre-assigned: ", self.machines_pre_assigned)
         
@@ -295,7 +301,7 @@ class Problem:
         # print("union: ", union_machines_effective_per_resource_common)
     
 
-    def load_modelA(self, solver_name="cbc"):
+    def load_modelA_1(self, solver_name="cbc"):
         
         ## load the model and the solver
         model = Model('./model/modelA.mzn')
@@ -315,6 +321,38 @@ class Problem:
         
         
         instance["start_pre_assigned"] = self.start_pre_assigned
+        
+        # instance["machines_allowed"] = self.machines_effective_allowed_modelA
+        
+        instance["resources_allowed"] = self.resources_effective_modelA
+        
+        instance["offset_machine"] = self.offset_machine
+        instance["offset_which_machine"] = self.offset_which_machine
+        
+        ## solve the model
+        self.result = instance.solve()
+        
+    
+    def load_modelA(self, solver_name="cbc"):
+        
+        ## load the model and the solver
+        model = Model('./model/modelA.mzn')
+        solver = Solver.lookup(solver_name)
+        instance = Instance(solver, model)
+        
+        ## load the data into the model
+        instance["num_tests"] = self.num_new_tasks_modelA
+        instance["num_machines"] = self.num_machines
+        instance["num_resources"] = self.num_resources_effective-1
+        
+        instance["durations"] = self.new_duarations_modelA 
+        
+        # instance["machines_allowed"] = self.machines_allowed_modelA
+        instance["machines_allowed"] = self.machines_allowed_modelA[:self.num_new_tasks_modelA]
+        instance["machines_pre_assigned"] = self.machines_pre_assigned_A
+        
+        
+        # instance["start_pre_assigned"] = self.start_pre_assigned
         
         # instance["machines_allowed"] = self.machines_effective_allowed_modelA
         
@@ -659,16 +697,16 @@ if __name__ == "__main__":
     
     
     problem.input_data_modelA()
-    problem.load_modelA()
+    # problem.load_modelA()
     
     time_partial = time.time()
     
-    problem.gready_algorithm_modelB()
+    # problem.gready_algorithm_modelB()
     
-    print("Is solution:", problem.checker_solution())
+    # print("Is solution:", problem.checker_solution())
     
-    problem.create_output_file()
-    problem.crete_plot_file()
+    # problem.create_output_file()
+    # problem.crete_plot_file()
     
     time_end = time.time()
     
