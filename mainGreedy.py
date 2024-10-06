@@ -167,8 +167,8 @@ class Problem:
         self.durations_modelA = [self.durations[i-1] for i in self.tests_modelA]
         
         self.machines_allowed_modelA = [self.machines_allowed[i-1] for i in self.tests_modelA]
-        resources_allowed_modelA = [{dictionaire_tests_modelA[j] for j in self.resources_allowed[i]} for i in range(self.num_resources)]
-        self.resources_effective_modelA = Problem.filter_sets(resources_allowed_modelA)
+        self.resources_allowed_modelA = [{dictionaire_tests_modelA[j] for j in self.resources_allowed[i]} for i in range(self.num_resources)]
+        self.resources_effective_modelA = Problem.filter_sets(self.resources_allowed_modelA)
         
         self.num_resources_effective = len(self.resources_effective_modelA)
         self.have_resources_modelA = [self.have_resources[i-1] for i in self.tests_modelA]
@@ -203,71 +203,89 @@ class Problem:
         
         
         ##! assign values for the start time in the first resource
+        ##! seems that doesnt't work
         
-        lenghts_resources = [len(self.resources_effective_modelA[i]) for i in range(self.num_resources_effective)]
-        index_max_resource = lenghts_resources.index(max(lenghts_resources))
+        # lenghts_resources = [len(self.resources_effective_modelA[i]) for i in range(self.num_resources_effective)]
+        # index_max_resource = lenghts_resources.index(max(lenghts_resources))
         
-        tests_resource = list(self.resources_effective_modelA[index_max_resource])
+        # tests_resource = list(self.resources_effective_modelA[index_max_resource])
         
         
-        self.start_pre_assigned = [0 for _ in range(self.num_tests_modelA)]
+        # self.start_pre_assigned = [0 for _ in range(self.num_tests_modelA)]
         
-        self.start_pre_assigned[tests_resource[0]-1] = 0
-        self.start_pre_assigned[tests_resource[1]-1] = self.durations_modelA[tests_resource[0]-1]
+        # self.start_pre_assigned[tests_resource[0]-1] = 0
+        # self.start_pre_assigned[tests_resource[1]-1] = self.durations_modelA[tests_resource[0]-1]
         
-        old_task = tests_resource[1]
-        for i, task in enumerate(tests_resource):
-            if i > 1:
-                self.start_pre_assigned[task-1] = self.durations_modelA[task-2] + self.start_pre_assigned[old_task-1] 
+        # old_task = tests_resource[1]
+        # for i, task in enumerate(tests_resource):
+        #     if i > 1:
+        #         self.start_pre_assigned[task-1] = self.durations_modelA[task-2] + self.start_pre_assigned[old_task-1] 
                 
-                old_task = task
+        #         old_task = task
         
-        for i in range(self.num_tests_modelA):
-            if self.start_pre_assigned[i] == 0:
-                self.start_pre_assigned[i] = -2
+        # for i in range(self.num_tests_modelA):
+        #     if self.start_pre_assigned[i] == 0:
+        #         self.start_pre_assigned[i] = -2
                 
-        self.start_pre_assigned[tests_resource[0]-1] = 0
+        # self.start_pre_assigned[tests_resource[0]-1] = 0
         
-        print()
-        print("durations: ", self.durations_modelA)
-        print("start pre-assigned: ", self.start_pre_assigned)
-        print()
-        
-        
-        self.new_tasks_modelA = [i+1 for i in range(self.num_tests_modelA) if self.start_pre_assigned[i] == -2]
-        self.num_new_tasks_modelA = len(self.new_tasks_modelA)
-        self.new_duarations_modelA = [self.durations_modelA[i-1] for i in self.new_tasks_modelA]
-        self.machines_pre_assigned_A = [self.machines_pre_assigned[i-1] for i in self.new_tasks_modelA]
-        self.resources_effective_modelA_A = [self.resources_effective_modelA[i] for i in range(self.num_resources_effective) if i != index_max_resource]
+        # print()
+        # print("durations: ", self.durations_modelA)
+        # print("start pre-assigned: ", self.start_pre_assigned)
+        # print()
         
         
-        end_pre_assigned = [self.start_pre_assigned[i] + self.durations_modelA[i] if self.start_pre_assigned[i] > -2 else -2 for i in range(self.num_tests_modelA)]
+        ##? Intersection pre assigned tasks
+        # intersection_effective_resources = set.intersection(*self.resources_effective_modelA)
         
-        start_pre_assigned_2 = [self.start_pre_assigned[i] for i in range(self.num_tests_modelA) if self.start_pre_assigned[i] > -2]
-        end_pre_assigned_2 = [end_pre_assigned[i] for i in range(self.num_tests_modelA) if self.start_pre_assigned[i] > -2]
+        # print("intersection resources: ", intersection_effective_resources)
         
-        max_number = sum(self.durations)
-        print(max_number)
         
-        gaps_start = list()
+        # self.start_pre_assigned = [0 for _ in range(len(intersection_effective_resources))]
+        # counter = 0
         
-        for i in range(len(start_pre_assigned_2)-1):
-            if start_pre_assigned_2[i+1] - end_pre_assigned_2[i] > 0:
-                gaps_start.append([end_pre_assigned_2[i], start_pre_assigned_2[i+1]])
+        
+        # self.new_tasks_modelA = [i+1 for i in range(self.num_tests_modelA) if self.start_pre_assigned[i] == -2]
+        # self.num_new_tasks_modelA = len(self.new_tasks_modelA)
+        # self.new_duarations_modelA = [self.durations_modelA[i-1] for i in self.new_tasks_modelA]
+        # self.machines_pre_assigned_A = [self.machines_pre_assigned[i-1] for i in self.new_tasks_modelA]
+        
+        
+        # self.resources_effective_modelA_A = [(self.resources_effective_modelA[i]-self.resources_effective_modelA[0]) for i in range(self.num_resources_effective) if i != index_max_resource]
+        
+        
+        
+        # print("effective resources2 : ", self.resources_effective_modelA_A)
+        # print(self.resources_effective_modelA[0]-self.resources_effective_modelA[0])
+        # print(self.resources_effective_modelA[1]-self.resources_effective_modelA[0])
+        
+        
+        # end_pre_assigned = [self.start_pre_assigned[i] + self.durations_modelA[i] if self.start_pre_assigned[i] > -2 else -2 for i in range(self.num_tests_modelA)]
+        
+        # start_pre_assigned_2 = [self.start_pre_assigned[i] for i in range(self.num_tests_modelA) if self.start_pre_assigned[i] > -2]
+        # end_pre_assigned_2 = [end_pre_assigned[i] for i in range(self.num_tests_modelA) if self.start_pre_assigned[i] > -2]
+        
+        # max_number = sum(self.durations)
+        # print(max_number)
+        
+        # gaps_start = list()
+        
+        # for i in range(len(start_pre_assigned_2)-1):
+        #     if start_pre_assigned_2[i+1] - end_pre_assigned_2[i] > 0:
+        #         gaps_start.append([end_pre_assigned_2[i], start_pre_assigned_2[i+1]])
                 
-        if start_pre_assigned_2[0] > 0:
-            gaps_start.append([0, start_pre_assigned_2[0]])
+        # if start_pre_assigned_2[0] > 0:
+        #     gaps_start.append([0, start_pre_assigned_2[0]])
             
-        if end_pre_assigned_2[-1] < max_number:
-            gaps_start.append([end_pre_assigned_2[-1], max_number])
+        # if end_pre_assigned_2[-1] < max_number:
+        #     gaps_start.append([end_pre_assigned_2[-1], max_number])
         
-        print()
-        print("start pre-assigned: ", start_pre_assigned_2)
-        print("end pre-assigned: ", end_pre_assigned_2)
-        print("gaps: ", gaps_start)
-        print()
+        # print()
+        # print("start pre-assigned: ", start_pre_assigned_2)
+        # print("end pre-assigned: ", end_pre_assigned_2)
+        # print("gaps: ", gaps_start)
+        # print()
         
-    
         
         
         
@@ -322,7 +340,7 @@ class Problem:
         # print("union: ", union_machines_effective_per_resource_common)
     
 
-    def load_modelA_1(self, solver_name="cbc"):
+    def load_modelA(self, solver_name="cbc"):
         
         ## load the model and the solver
         model = Model('./model/modelA.mzn')
@@ -333,6 +351,7 @@ class Problem:
         instance["num_tests"] = self.num_tests_modelA
         instance["num_machines"] = self.num_machines
         instance["num_resources"] = self.num_resources_effective
+        # instance["num_resources"] = self.num_resources
         
         instance["durations"] = self.durations_modelA
         
@@ -341,20 +360,21 @@ class Problem:
         instance["machines_pre_assigned"] = self.machines_pre_assigned
         
         
-        instance["start_pre_assigned"] = self.start_pre_assigned
+        # instance["start_pre_assigned"] = self.start_pre_assigned
         
         # instance["machines_allowed"] = self.machines_effective_allowed_modelA
         
         instance["resources_allowed"] = self.resources_effective_modelA
         
-        instance["offset_machine"] = self.offset_machine
-        instance["offset_which_machine"] = self.offset_which_machine
+        instance["num_makespan"] = sum(self.durations)
+        # instance["offset_machine"] = self.offset_machine
+        # instance["offset_which_machine"] = self.offset_which_machine
         
         ## solve the model
         self.result = instance.solve()
         
     
-    def load_modelA(self, solver_name="cbc"):
+    def load_modelA_2(self, solver_name="cbc"):
         
         ## load the model and the solver
         model = Model('./model/modelA.mzn')
@@ -371,6 +391,7 @@ class Problem:
         # instance["machines_allowed"] = self.machines_allowed_modelA
         # instance["machines_allowed"] = self.machines_allowed_modelA[:self.num_new_tasks_modelA]
         instance["machines_pre_assigned"] = self.machines_pre_assigned_A
+        instance["resources_allowed"] = self.resources_effective_modelA_A
         
         
         instance["gaps_start"] = self.gaps_start
@@ -722,16 +743,16 @@ if __name__ == "__main__":
     
     
     problem.input_data_modelA()
-    # problem.load_modelA()
+    problem.load_modelA()
     
     time_partial = time.time()
     
-    # problem.gready_algorithm_modelB()
+    problem.gready_algorithm_modelB()
     
-    # print("Is solution:", problem.checker_solution())
+    print("Is solution:", problem.checker_solution())
     
-    # problem.create_output_file()
-    # problem.crete_plot_file()
+    problem.create_output_file()
+    problem.crete_plot_file()
     
     time_end = time.time()
     
