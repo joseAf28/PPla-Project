@@ -139,9 +139,11 @@ constraint %% - weaker constraint than the one below - it does not fix any type 
 
 
 %%? important if start is not pre-assigned
+
+%%!  Batching or Windowing the Ordering Constraints
 constraint 
         forall(r in 1..num_resources)(
-            forall(i, j in resources_allowed[r] where (i < j /\ i > 0))(
+            forall(i, j in resources_allowed[r] where (i < j /\ j <= i + 2))(
                 start[i] <= start[j]
             )
 );

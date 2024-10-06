@@ -366,7 +366,9 @@ class Problem:
         
         instance["resources_allowed"] = self.resources_effective_modelA
         
-        instance["num_makespan"] = sum(self.durations)
+        instance["num_makespan"] = sum(self.durations_modelA)
+        
+        print("num makespan: ", sum(self.durations_modelA))
         # instance["offset_machine"] = self.offset_machine
         # instance["offset_which_machine"] = self.offset_which_machine
         
