@@ -164,9 +164,6 @@ class Problem:
         self.tests_modelA = [i+1 for i in range(self.num_tests) if self.have_resources[i] == True]
         num_tests_modelA = len(self.tests_modelA)
         
-        ##? heuristic for t500 tests - works better than simply packing all the global tests in the same machine and 
-        ##? then distribute the remaining tests among the machines with gaps
-        
         tests_modelA_not_grouped = []
         tests_modelA_grouped = []
         
@@ -220,68 +217,98 @@ class Problem:
                     
         self.tests_duration_total = not_grouped_tests_duration + grouped_super_tests_duration
         
-        #####? ends here the heuristic
         
-        ##! Pre-assign the machines to the tests with the purpose  of miniming the use of the overlapping tasks in the same machine condition in
-        ##! in Minizinc model
+        ##! offset in the global resources in the machines that have only one machine allowed - have that into account when checking the global resources
+        # tests_not_modelA = [i+1 for i in range(self.num_tests) if i+1 not in tests_modelA]
+        # self.tests_unique_machines_no_resources = [self.machines_allowed[i-1] for i in tests_not_modelA if len(self.machines_allowed[i-1]) == 1]
+        # print("tests_unique_machines_no_resources: ", self.tests_unique_machines_no_resources)
         
-        self.machines_pre_assigned = [0 for _ in range(self.num_tests_total)]
+        self.offset_machine = [set() for _ in range(self.num_machines)]
+        # for test in self.tests_unique_machines_no_resources:
+        #     self.offset_machine[list(self.machines_allowed[test-1])[0]-1].add(self.durations[test-1])
         
-        for i in range(self.num_tests_total):
-            if len(self.machines_allowed_total[i]) < self.num_machines:
-                self.machines_pre_assigned[i] = list(self.machines_allowed_total[i])[0]
+        self.offset_machine = [sum(offset) for offset in self.offset_machine]
+        self.offset_which_machine = [i+1 if self.offset_machine[i] > 0 else 0 for i in range(self.num_machines)]
         
-        ## remaining global tests are distributed evenly among the machines
-        machine_value = 1
-        for i in range(self.num_tests_total):
-            if len(self.machines_allowed_total[i]) == self.num_machines:
-                self.machines_pre_assigned[i] = machine_value
-                
-                machine_value += 1
-                if machine_value > self.num_machines:
-                    machine_value = 1
-                    
-        ##! include the baseline case in case that the number of tests pass like 100 or something like that
+        # ##!? describe the case where there is at at least with unique restricton for each machine
+        # ##!? by default the offset from the last machine is zero
+        # if len(self.offset_which_machine) == self.num_machines:
+        #     self.offset_which_machine[-1] = 0
         
         
+        # # ##!? Idea - restrict the number of machines to the number of tests for the global resources
+        # # ##!? seems not improve the efficiency
+
+        # # self.set_non_common_machines = set()
+        # # for i in range(self.num_tests_modelA):
+        # #     if len(self.machines_allowed_modelA[i]) < self.num_machines:
+        # #         self.set_non_common_machines.update(self.machines_allowed_modelA[i])
+        
+        # # set_diff_elements = setAllMachines - self.set_non_common_machines
+        
+        # # while len(self.set_non_common_machines) < self.num_resources:
+        # #     self.set_non_common_machines.add(set_diff_elements.pop())
+        
+        # # self.machines_effective_allowed_modelA = [self.set_non_common_machines if len(self.machines_allowed_modelA[i]) == len(setAllMachines) else self.machines_allowed_modelA[i] for i in range(self.num_tests_modelA)]
+        
+        
+        # ##! Ideas that seem not to improve the efficiency, but worth to keep in mind and explore later
+        # # self.test_resources_modelA_no_restriction_machines = set(i+1 for i in range(self.num_tests_modelA) if len(self.machines_allowed_modelA[i]) == self.num_machines)
+        # # print(self.test_resources_modelA_no_restriction_machines)
+        
+        # # self.tests_no_model_A = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
+        
+        # # self.tests_restriction_machine_no_model_A = [i+1 for i in range(self.num_tests) if (i+1 in self.tests_no_model_A and len(self.machines_allowed[i]) != self.num_machines)]
+        # # self.machines_restriction_no_model_A = set.union(*[self.machines_allowed[i-1] for i in self.tests_restriction_machine_no_model_A])
+        # # self.machines_effective_per_resource = [[self.machines_allowed_modelA[i-1] for i in self.resources_effective_modelA[j]] for j in range(self.num_resources_effective)]
+        
+        # # # print(self.machines_effective_per_resource[0])
+        
+        # # self.machines_effective_per_resource_common = [Problem.common_elements_sets(self.machines_effective_per_resource[i]) for i in range(self.num_resources_effective)]
+        
+        # # union_machines_effective_per_resource_common = set.union(*self.machines_effective_per_resource_common) - self.machines_restriction_no_model_A
+        
+        # # print("union: ", union_machines_effective_per_resource_common)
+    
+    
     
     def load_modelA_total(self, solver_name="cbc"):
-        
-        
-        ## load the model and the solver
-        model = Model('./model/modelA.mzn')
-        solver = Solver.lookup(solver_name)
-        instance = Instance(solver, model)
-        
-        ## load the data into the model
-        instance["num_tests"] = self.num_tests_total
-        instance["num_machines"] = self.num_machines
-        instance["num_resources"] = self.num_resources
-        
-        instance["durations"] = self.tests_duration_total
-        instance["machines_pre_assigned"] = self.machines_pre_assigned
-        instance["resources_allowed"] = self.resources_allowed_total
-        
-        ##! baseline makespan
-        instance["num_makespan"] = sum(self.tests_duration_total)
-        
-        
-        ### Hiperparameters
-        
-        ## t20: window_size = 0
-        ## t30: window_size = 0/1
-        
-        ## t100: window_size = 2
-        ## t500: window_size = 2
-        
-        
-        instance["window_size"] = 3
-        print("num makespan: ", sum(self.tests_duration_total))
-        print("num tests: ", self.num_tests_total)
-        print("effective resources: ", self.resources_allowed_total)
-        
-        ## solve the model
-        self.result = instance.solve() 
+            
+            ## model A
+            print("model A")
+            print("num_tests: ", self.num_tests_total)
+            print("num_machines: ", self.num_machines)
+            print("num_resources: ", self.num_resources)
+            
+            print("durations: ", self.tests_duration_total)
+            print("resources: ", self.resources_allowed_total)
+            
+            ## load the model and the solver
+            model = Model('./model/modelA.mzn')
+            solver = Solver.lookup(solver_name)
+            instance = Instance(solver, model)
+            
+            ## load the data into the model
+            instance["num_tests"] = self.num_tests_total
+            instance["num_machines"] = self.num_machines
+            instance["num_resources"] = self.num_resources
+            
+            instance["durations"] = self.tests_duration_total
+            
+            instance["machines_allowed"] = self.machines_allowed_total
+            # instance["machines_allowed"] = self.machines_effective_allowed_modelA
+            
+            instance["resources_allowed"] = self.resources_allowed_total
+            
+            instance["offset_machine"] = self.offset_machine
+            instance["offset_which_machine"] = self.offset_which_machine
+            
+            ## solve the model
+            self.result = instance.solve()
+            
+            print()
+            print("solution")
+            print(self.result)    
     
     
     ##! for the second part of the problem, instead of using the minizinc model, I will use a greedy algorithm
