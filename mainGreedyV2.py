@@ -158,6 +158,103 @@ class Problem:
         self.have_resources_modelA = [self.have_resources[i-1] for i in self.tests_modelA]
         
         
+        ##! tests with global resources that can be superposed in time
+        resources_allowed_per_testA = [ set() for _ in range(self.num_tests_modelA)]
+        
+        for i in range(self.num_tests):
+            for j in range(self.num_resources):
+                if f'r{j+1}' in self.resources[i]:
+                    resources_allowed_per_testA[dictionaire_tests_modelA[i+1]-1].add(j+1)
+        
+        
+        len_resources_allowed_per_testA = [len(resources) for resources in resources_allowed_per_testA]
+        
+        ### algorithm to find the tests that can be superposed
+        ### 1 - start with the tests that have the least number of resources; cap 10% of the resources
+        ### 2 - compare them with all the other tests 
+        
+        min_resources = min(len_resources_allowed_per_testA)
+        max_resources = max(len_resources_allowed_per_testA)
+        cap = 0.1
+        min_check = min_resources
+        max_check = round(min_resources + cap*(max_resources - min_resources))
+        
+        queue_tests_to_superpose = [i+1 for i in range(self.num_tests_modelA) if (len_resources_allowed_per_testA[i] >= min_check and len_resources_allowed_per_testA[i] <= max_check)]
+        
+        tests_allowed_to_superpose = []
+        
+        
+        print("resources allowed per test: ", resources_allowed_per_testA)
+        print("size of resources allowed per test: ", len_resources_allowed_per_testA)
+        print("queue tests to superpose: ", queue_tests_to_superpose)
+        print("tests model A: ", self.tests_modelA)
+        print("queue real tests to superpose: ", [dictionaire_undo_tests_modelA[i] for i in queue_tests_to_superpose])
+        
+        
+        for element in queue_tests_to_superpose:
+            superposition_set = set()
+            for j in range(len(resources_allowed_per_testA)):
+                
+                if (element-1 != j) and  (resources_allowed_per_testA[element-1].isdisjoint(resources_allowed_per_testA[j])):
+                    superposition_set.add(j+1)
+                    
+            if len(superposition_set) > 1:
+                tests_allowed_to_superpose.append(superposition_set)
+            else: 
+                tests_allowed_to_superpose.append(set())
+        
+        
+        print("tests allowed to superpose: ", tests_allowed_to_superpose)
+        print("tests_allowed_to_superpose real: ", [ [dictionaire_undo_tests_modelA[i] for i in tests] for tests in tests_allowed_to_superpose])
+        
+        
+        self.pairs_allowed_to_superpose = []
+        
+        if len(tests_allowed_to_superpose) > 0:
+            for i in range(len(queue_tests_to_superpose)):
+                if len(tests_allowed_to_superpose[i]) > 0:
+                    for test in tests_allowed_to_superpose[i]:
+                        self.pairs_allowed_to_superpose.append([queue_tests_to_superpose[i], test])
+        else:
+            pass             
+        
+        
+        print("pairs allowed to superpose: ", self.pairs_allowed_to_superpose)
+        
+        
+        ##! define ordering of the tests that use the same global resource
+        
+        window_size = 5
+        
+        pairs_ordering_same_resource = []
+        for i in range(len(self.resources_effective_modelA)):
+            for ele1 in self.resources_effective_modelA[i]:
+                for ele2 in self.resources_effective_modelA[i]:
+                    if ele1 < ele2 and ele2 <= ele1 + window_size:
+                        pairs_ordering_same_resource.append([ele1, ele2])
+        
+        print("*"*50)
+        print("effective resources: ", self.resources_effective_modelA)
+        print("pairs ordering same resource: ", pairs_ordering_same_resource)
+        print("pairs allowed to superpose: ", self.pairs_allowed_to_superpose)
+        print("*"* 50)
+        
+        
+        self.pairs_ordering_same_resource_with_superpose = []
+        queue_aux = list(set([pair[0] for pair in self.pairs_allowed_to_superpose]))
+        print("queue aux: ", queue_aux)
+        
+        for pair in pairs_ordering_same_resource:
+            if pair[0] in queue_aux or pair[1] in queue_aux:
+                pass
+                # self.pairs_ordering_same_resource_with_superpose.append(pair)
+            else:
+                self.pairs_ordering_same_resource_with_superpose.append(pair)
+                
+        print("pairs ordering same resource with superpose: ", self.pairs_ordering_same_resource_with_superpose)
+        
+        
+        
         ##! Pre-assign the machines to the tests with the purpose  of miniming the use of the overlapping tasks in the same machine condition in
         ##! in Minizinc model
         
@@ -183,7 +280,7 @@ class Problem:
     def load_modelA(self, solver_name="cbc"):
         
         ## load the model and the solver
-        model = Model('./model/modelA.mzn')
+        model = Model('./model/modelAV2.mzn')
         solver = Solver.lookup(solver_name)
         instance = Instance(solver, model)
         
@@ -202,6 +299,11 @@ class Problem:
         ##! baseline makespan
         instance["num_makespan"] = sum(self.durations_modelA)
         
+        
+        instance["nb_pairs_allowed_to_superpose"] = len(self.pairs_allowed_to_superpose)
+        instance["pairs_allowed_to_superpose"] = self.pairs_allowed_to_superpose
+        instance["nb_pairs_ordering_same_resource_with_superpose"] = len(self.pairs_ordering_same_resource_with_superpose)
+        instance["pairs_ordering_same_resource_with_superpose"] = self.pairs_ordering_same_resource_with_superpose
         
         ### Hiperparameters
         
@@ -232,6 +334,10 @@ class Problem:
         print("model A results")
         
         print("effective resources: ", self.resources_effective_modelA_real)
+        print(" resources: ", self.resources_allowed_modelA)
+        
+        print("resources: ", self.resources)
+        
         # print([self.resources[resources_real[0]-1] for resources_real in self.resources_effective_modelA_real])
         print("makespan A: ", self.makespan_A)
         print("machines assigned A: ", self.machines_assigned_A)
