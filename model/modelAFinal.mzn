@@ -1,4 +1,4 @@
-include "globals.mzn";
+include "disjunctive.mzn";
 
 %%! decomposition heuristic
 %% It only solves the tests with global resources
@@ -12,7 +12,6 @@ int: num_resources;     % Number of global resources
 array[1..num_tests] of int: durations;                         % Duration of each global test
 
 int: num_makespan;      % Makespan estimate: all tests with global resources occur in the same machine
-int: window_size;       % Window size for the ordering constraint
 
 array[1..num_resources] of set of int: resources_allowed;       % (t)[{1, 2, 5}, {5, 7}, ..., {9}]
 array[1..num_tests] of int: machines_pre_assigned;              % machine_pre_assigned[i] is the machine to which test i is pre-assigned
@@ -25,7 +24,6 @@ int: nb_pairs_ordering_same_resource_with_superpose;
 array[1..nb_pairs_ordering_same_resource_with_superpose, 1..2] of int: pairs_ordering_same_resource_with_superpose; % pairs_ordering_same_resource_with_superpose[i, 1] and pairs_ordering_same_resource_with_superpose[i, 2] are the indexes of the tests that are allowed to superpose
 
 
-
 %% Results
 array[1..num_tests] of var 1..num_machines: machine_assigned;  % machine_assigned[i] is the machine to which test i is assigned
 array[1..num_tests] of var 0..num_makespan: start;             % Start time for each test
@@ -35,7 +33,6 @@ var 0..num_makespan: makespan; % The makespan (time when the last test finishes)
 
 predicate exclusive(set of int: s) =
     disjunctive([start[i] | i in s], [durations[i] | i in s]);
-
 
 
 %%! Constraints
@@ -60,20 +57,15 @@ constraint
 );
 
 
+%% set of tests that are allowed to superpose in time
 constraint
         forall(i in 1..nb_pairs_allowed_to_superpose)(
             start[pairs_allowed_to_superpose[i, 1]] >= start[pairs_allowed_to_superpose[i, 2]] \/
             start[pairs_allowed_to_superpose[i, 1]] + durations[pairs_allowed_to_superpose[i, 1]] <= start[pairs_allowed_to_superpose[i, 2]] + durations[pairs_allowed_to_superpose[i, 2]]
         );
 
-% %%  Batching or Windowing the Ordering Constraints among the same global resource tests
-% constraint 
-%         forall(r in 1..num_resources)(
-%             forall(i, j in resources_allowed[r] where (i < j /\ j <= i + window_size))(
-%                 start[i] <= start[j]
-%             )
-% );
 
+%% set of tests that are not allowed to superpose in time and must be ordered
 constraint
         forall(i in 1..nb_pairs_ordering_same_resource_with_superpose)(
             start[pairs_ordering_same_resource_with_superpose[i, 1]] <= start[pairs_ordering_same_resource_with_superpose[i, 2]]
