@@ -35,6 +35,7 @@ predicate exclusive(set of int: s) =
     disjunctive([start[i] | i in s], [durations[i] | i in s]);
 
 
+
 %%! Constraints
 
 constraint

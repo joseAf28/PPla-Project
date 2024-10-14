@@ -5,8 +5,6 @@ import time
 import heapq                    # for the heap data structure used in the greedy algorithm
 from itertools import groupby   # for grouping the data in the greedy algorithm
 
-from collections import defaultdict
-
 import matplotlib.pyplot as plt # for plotting the results
 
 
@@ -106,336 +104,6 @@ class Problem:
         self.durations = [tests_values[i][1] for i in range(len(tests_values))]
         self.machines = [tests_values[i][2] for i in range(len(tests_values))]
         self.resources = [tests_values[i][3] for i in range(len(tests_values))]
-    
-    
-    
-    def input_data_modelA_500(self):
-        
-        ###! Input data for model A
-        self.tests_modelA_1 = [i+1 for i in range(self.num_tests) if self.have_resources[i] == True]
-        self.num_tests_modelA_1 = len(self.tests_modelA_1)
-        
-        ##? heuristic for t500 tests - works better than simply packing all the global tests in the same machine and 
-        ##? then distribute the remaining tests among the machines with gaps
-        
-        tests_modelA_not_grouped = []
-        tests_modelA_grouped = []
-        
-        for test in self.tests_modelA_1:
-            if len(self.machines_allowed[test-1]) == self.num_machines:
-                tests_modelA_grouped.append(test)
-            else:
-                tests_modelA_not_grouped.append(test)
-                
-                
-        grouped_super_tests = defaultdict(set)
-        
-        for test in tests_modelA_grouped:
-            resources = frozenset(self.resources[test-1])
-            grouped_super_tests[resources].add(test)
-        
-        
-        grouped_super_tests_duration = [sum(self.durations[i-1] for i in tests) for resources, tests in grouped_super_tests.items()]
-        grouped_super_tests_machines = [setAllMachines for _ in range(len(grouped_super_tests))]
-        grouped_super_tests_resources = [set(resources) for resources, tests in grouped_super_tests.items()]
-        
-        not_grouped_tests_duration = [self.durations[i-1] for i in tests_modelA_not_grouped]
-        not_grouped_tests_machines = [self.machines_allowed[i-1] for i in tests_modelA_not_grouped]
-        not_grouped_tests_resources = [set(self.resources[i-1]) for i in tests_modelA_not_grouped]
-        
-        tests_modelA_grouped = [len(tests_modelA_not_grouped)+i+1 for i in range(len(grouped_super_tests))]
-        
-        dict_non_grouped = {tests_modelA_not_grouped[i]:i+1 for i in range(len(tests_modelA_not_grouped))}
-        dict_grouped = {}
-        
-        for i, resources in enumerate(grouped_super_tests):
-            for test in grouped_super_tests[resources]:
-                dict_grouped[test] = len(tests_modelA_not_grouped) + i + 1
-        
-        dict_total = {**dict_non_grouped, **dict_grouped}
-        
-        resources_allowed_modelA = [{dict_total[j] for j in self.resources_allowed[i]} for i in range(self.num_resources)]
-        
-        
-        
-        self.tests_modelA = not_grouped_tests_resources + grouped_super_tests_resources
-        self.num_tests_modelA = len(self.tests_modelA)
-        
-        self.durations_modelA = not_grouped_tests_duration + grouped_super_tests_duration
-        self.machines_allowed_modelA = not_grouped_tests_machines + grouped_super_tests_machines
-        
-        self.resources_effective_modelA = [set() for _ in range(self.num_resources)]
-        for i in range(len(self.tests_resources_total)):
-            for j in range(self.num_resources):
-                if f'r{j+1}' in self.tests_resources_total[i]:
-                    self.resources_allowed_total[j].add(i+1)
-        
-        self.num_resources_effective = len(self.resources_effective_modelA)
-        
-        #####? ends here the heuristic
-    
-    
-    def input_data_modelA_init(self):
-        ##! Input data for all the tests
-        dictionaire_machines = {f"m{i+1}": i+1 for i in range(self.num_machines)}
-        setAllMachines = {i+1 for i in range(self.num_machines)}
-        
-        self.machines_allowed = []
-        for i in range(self.num_tests):
-            if self.machines[i] == ['e']:
-                self.machines_allowed.append(setAllMachines) ## default one
-            else:
-                self.machines_allowed.append({dictionaire_machines[machine] for machine in self.machines[i]})
-        
-        
-        self.resources_allowed = [ [] for _ in range(self.num_resources)]
-        self.have_resources = [False for _ in range(self.num_tests)]
-        
-        for i in range(self.num_tests):
-            for j in range(self.num_resources):
-                if f'r{j+1}' in self.resources[i]:
-                    self.resources_allowed[j].append(i+1)
-                    self.have_resources[i] = True
-                    
-        
-        
-    def input_data_modelA_middle_up_to_100(self):
-        
-        ###! Input data for model A
-        ## It includes only the tests that have resources despite it has restrictions on the machines or not
-        
-        self.tests_modelA = [i+1 for i in range(self.num_tests) if self.have_resources[i] == True]
-        self.num_tests_modelA = len(self.tests_modelA)
-        
-        ## convert the tests to a dictionary to have the index of the test (to start from 1)
-        self.dictionaire_tests_modelA = {self.tests_modelA[i]:i+1  for i in range(self.num_tests_modelA)}
-        self.dictionaire_undo_tests_modelA = {i+1: self.tests_modelA[i] for i in range(self.num_tests_modelA)}
-        
-        self.durations_modelA = [self.durations[i-1] for i in self.tests_modelA]
-        self.machines_allowed_modelA = [self.machines_allowed[i-1] for i in self.tests_modelA]
-        
-        self.resources_allowed_modelA = [{self.dictionaire_tests_modelA[j] for j in self.resources_allowed[i]} for i in range(self.num_resources)]
-        self.resources_effective_modelA = Problem.filter_sets(self.resources_allowed_modelA)
-        
-        self.resources_effective_modelA_real = [ [self.dictionaire_undo_tests_modelA[j] for j in i] for i in self.resources_effective_modelA]
-        
-        
-        self.num_resources_effective = len(self.resources_effective_modelA)
-        self.have_resources_modelA = [self.have_resources[i-1] for i in self.tests_modelA]
-    
-    
-    
-    def input_data_modelA_middle_500(self):
-        
-        setAllMachines = {i+1 for i in range(self.num_machines)}
-        
-        ###! Input data for model A
-        self.tests_modelA_1 = [i+1 for i in range(self.num_tests) if self.have_resources[i] == True]
-        self.num_tests_modelA_1 = len(self.tests_modelA_1)
-        
-        ##? heuristic for t500 tests - works better than simply packing all the global tests in the same machine and 
-        ##? then distribute the remaining tests among the machines with gaps
-        
-        tests_modelA_not_grouped = []
-        tests_modelA_grouped = []
-        
-        for test in self.tests_modelA_1:
-            if len(self.machines_allowed[test-1]) == self.num_machines:
-                tests_modelA_grouped.append(test)
-            else:
-                tests_modelA_not_grouped.append(test)
-                
-                
-        self.grouped_super_tests = defaultdict(set)
-        
-        for test in tests_modelA_grouped:
-            resources = frozenset(self.resources[test-1])
-            self.grouped_super_tests[resources].add(test)
-        
-        
-        print("grouped super tests: ", self.grouped_super_tests)
-        
-        counter = 0
-        for resources, tests in self.grouped_super_tests.items():
-            print(f"resources: {resources}, tests: {tests}")
-            counter += len(tests)
-    
-        
-        self.grouped_super_tests_duration = [sum(self.durations[i-1] for i in tests) for resources, tests in self.grouped_super_tests.items()]
-        self.grouped_super_tests_machines = [setAllMachines for _ in range(len(self.grouped_super_tests))]
-        self.grouped_super_tests_resources = [set(resources) for resources, tests in self.grouped_super_tests.items()]
-        
-        not_grouped_tests_duration = [self.durations[i-1] for i in tests_modelA_not_grouped]
-        not_grouped_tests_machines = [self.machines_allowed[i-1] for i in tests_modelA_not_grouped]
-        not_grouped_tests_resources = [set(self.resources[i-1]) for i in tests_modelA_not_grouped]
-        
-        tests_modelA_grouped = [len(tests_modelA_not_grouped)+i+1 for i in range(len(self.grouped_super_tests))]
-        
-        self.dict_non_grouped = {tests_modelA_not_grouped[i]:i+1 for i in range(len(tests_modelA_not_grouped))}
-        self.dict_undo_non_grouped = {i+1: tests_modelA_not_grouped[i] for i in range(len(tests_modelA_not_grouped))}
-        
-        self.len_tests_modelA_not_grouped = len(tests_modelA_not_grouped)
-        
-        self.dict_grouped = {}
-        for i, resources in enumerate(self.grouped_super_tests):
-            for test in self.grouped_super_tests[resources]:
-                self.dict_grouped[test] = self.len_tests_modelA_not_grouped + i + 1
-        
-        
-        print("counter: ", counter, "have resources: ", sum(self.have_resources))
-        print("len dict grouped: ", len(self.dict_grouped))
-        print("len dict non grouped: ", len(self.dict_non_grouped))
-        
-        print("--"*50)
-        
-        
-        # print("dict non grouped: ", self.dict_non_grouped)
-        # print("dict grouped: ", self.dict_grouped)
-        
-        # print("size: ", len(self.dict_non_grouped) + len(self.dict_grouped))
-        # print()
-        
-        
-        
-        self.dictionaire_tests_modelA = {**self.dict_non_grouped, **self.dict_grouped}
-        
-        print("len 2:", len(self.dictionaire_tests_modelA))
-        
-        resources_allowed_modelA = [{self.dictionaire_tests_modelA[j] for j in self.resources_allowed[i]} for i in range(self.num_resources)]
-        
-        self.tests_modelA = not_grouped_tests_resources + self.grouped_super_tests_resources
-        self.num_tests_modelA = len(self.tests_modelA)
-        
-        self.durations_modelA = not_grouped_tests_duration + self.grouped_super_tests_duration
-        self.machines_allowed_modelA = not_grouped_tests_machines + self.grouped_super_tests_machines
-        
-        self.resources_effective_modelA = [set() for _ in range(self.num_resources)]
-        for i in range(self.num_tests_modelA):
-            for j in range(self.num_resources):
-                if f'r{j+1}' in self.tests_modelA[i]:
-                    self.resources_effective_modelA[j].add(i+1)
-        
-        self.num_resources_effective = len(self.resources_effective_modelA)
-    
-    
-    
-    def input_data_modelA_end(self, nb_max_non_ordering):
-        
-        ##! find the the tests with global resources that can be superposed in time
-        ### 1 - start with the tests that have the least number of resources
-        ### 2 - compare them with all the other tests to check if they can be superposed
-        ### 3 - if they can be superposed, add them to the list of tests that can be superposed
-        ### 4 - limit the number of tests that can be superposed: it will be considered an hyperparameter of the model that can be changed
-        ### 5 - to break further simmetries, we only consider the first element of the pair to superpose from all pairs available to cut further the search space
-        
-        resources_allowed_per_testA = [ set() for _ in range(self.num_tests_modelA)]
-        
-        for i in range(self.num_tests):
-            for j in range(self.num_resources):
-                if f'r{j+1}' in self.resources[i]:
-                    resources_allowed_per_testA[self.dictionaire_tests_modelA[i+1]-1].add(j+1)
-        
-        
-        len_resources_allowed_per_testA = [len(resources) for resources in resources_allowed_per_testA]
-    
-        
-        min_resources = min(len_resources_allowed_per_testA)
-        max_resources = max(len_resources_allowed_per_testA)
-        cap = 1.0
-        
-        min_check = min_resources
-        max_check = round(min_resources + cap*(max_resources - min_resources))
-        
-        queue_tests_to_superpose = [i+1 for i in range(self.num_tests_modelA) if (len_resources_allowed_per_testA[i] >= min_check and len_resources_allowed_per_testA[i] <= max_check)]
-        
-        
-        if len(queue_tests_to_superpose) > nb_max_non_ordering:
-            queue_tests_to_superpose = sorted(queue_tests_to_superpose, key=lambda x: len_resources_allowed_per_testA[x-1], reverse=False)
-            queue_tests_to_superpose = queue_tests_to_superpose[:nb_max_non_ordering]
-        
-        
-        tests_allowed_to_superpose = []
-        for element in queue_tests_to_superpose:
-            superposition_set = set()
-            for j in range(len(resources_allowed_per_testA)):
-                
-                if (element-1 != j) and  (resources_allowed_per_testA[element-1].isdisjoint(resources_allowed_per_testA[j])):
-                    superposition_set.add(j+1)
-                    
-            if len(superposition_set) > 1:
-                tests_allowed_to_superpose.append(superposition_set)
-            else: 
-                tests_allowed_to_superpose.append(set())
-                
-        
-        self.pairs_allowed_to_superpose = []
-        if len(tests_allowed_to_superpose) > 0:
-            for i in range(len(queue_tests_to_superpose)):
-                if len(tests_allowed_to_superpose[i]) > 0:
-                    for test in tests_allowed_to_superpose[i]:
-                        self.pairs_allowed_to_superpose.append([queue_tests_to_superpose[i], test])
-        else:
-            pass             
-        
-        
-        ##! choose only the first element of the pairs to superpose
-        self.unique_pairs_allowed_to_superpose = []
-        seen_first_element = set()
-        
-        for pair in self.pairs_allowed_to_superpose:
-            if pair[0] not in seen_first_element:
-                self.unique_pairs_allowed_to_superpose.append(pair)
-                seen_first_element.add(pair[0])
-            else:
-                pass
-            
-        
-        ###! tests that can't be superposed in time are ordered in a way that they don't overlap in time to break simmetries
-        ### By default, we consider a window of size 5 to order the tests that use the same resource 
-        window_size = 5
-        
-        pairs_ordering_same_resource = []
-        for i in range(len(self.resources_effective_modelA)):
-            for ele1 in self.resources_effective_modelA[i]:
-                for ele2 in self.resources_effective_modelA[i]:
-                    if ele1 < ele2 and ele2 <= ele1 + window_size:
-                        pairs_ordering_same_resource.append([ele1, ele2])
-        
-        
-        ##! Finnally we exlude the pairs that are allowed to superpose so that we send two different order restrictions to the miniZinc model
-        self.pairs_ordering_same_resource_with_superpose = []
-        queue_aux = list(set([pair[0] for pair in self.unique_pairs_allowed_to_superpose]))
-        
-        # print("queue aux: ", queue_aux)
-        
-        for pair in pairs_ordering_same_resource:
-            if pair[0] in queue_aux or pair[1] in queue_aux:
-                pass
-            else:
-                self.pairs_ordering_same_resource_with_superpose.append(pair)
-        
-        
-        ##! Bu pre-assigning the machines to the tests with the heursitic of miniming the use of the overlapping tasks in the same machine condition in
-        ##! in Minizinc model, we break further simmetries and cut further the search space
-        
-        self.machines_pre_assigned = [0 for _ in range(self.num_tests_modelA)]
-        
-        ## assign the first purpose machine for the tests with machine restrictions
-        for i in range(self.num_tests_modelA):
-            if len(self.machines_allowed_modelA[i]) < self.num_machines:
-                self.machines_pre_assigned[i] = list(self.machines_allowed_modelA[i])[0]
-        
-        ## remaining global tests are distributed evenly among the machines
-        machine_value = 1
-        for i in range(self.num_tests_modelA):
-            if len(self.machines_allowed_modelA[i]) == self.num_machines:
-                self.machines_pre_assigned[i] = machine_value
-                
-                machine_value += 1
-                if machine_value > self.num_machines:
-                    machine_value = 1
-    
-    
     
     
     
@@ -602,9 +270,6 @@ class Problem:
     
     
     
-    
-    
-    
     def load_modelA(self, new_baseline, solver_name="cbc"):
         
         ## load the model and the solver
@@ -652,11 +317,7 @@ class Problem:
         
         
         ## list tests with machine restrictions and not included in model A
-        if self.num_tests < 500:
-            self.tests_modelB = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
-        else:
-            self.tests_modelB = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA_1]
-        
+        self.tests_modelB = [i+1 for i in range(self.num_tests) if i+1 not in self.tests_modelA]
         self.num_tests_modelB = len(self.tests_modelB)
         
         self.durations_modelB = [self.durations[i-1] for i in self.tests_modelB]
@@ -764,151 +425,10 @@ class Problem:
                 ### after the assignment, we add the slots back to the heap
                 heapq.heappush(machine_availability, slot)
 
-        if self.num_tests < 500:
-            
-            tasks_assignment_A = {self.tests_modelA[i]: (self.machines_assigned_A[i], self.start_times_A[i]) for i in range(self.num_tests_modelA)}
-            self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_B}
-            self.total_makespan = max([self.tasks_assignment[task][1] + self.durations[task-1] for task in self.tasks_assignment])
-        else:
-            
-            # tasks_assignment_A = {i+1: (self.machines_assigned_A[i], self.start_times_A[i]) for i in range(self.num_tests_modelA)}
-            # shiftA = len(tasks_assignment_A)
-            
-            # tasks_assignment_aux_B = {i+1+shiftA: task for i, task in enumerate(tasks_assignment_B.values())}
-            # self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_aux_B}
-            
-            
-            # self.tests_duration_total_both_models = self.durations_modelA + self.durations_modelB
-            # self.machines_total_both_models = self.machines_allowed_modelA + self.machines_allowed_modelB
-            
-            # # self.total_makespan = max([self.tasks_assignment[task][1] + self.tests_duration_total_both_models[task-1] for task in self.tasks_assignment])
-            
-            # print("tasks assignment A: ", tasks_assignment_A)
-            
-            # print("super tests resources: ", self.grouped_super_tests_resources)
-            # print("super tests duration: ", self.grouped_super_tests_duration)
-            # print("super tests machines: ", self.grouped_super_tests_machines)
-            
-            # print("self dict non grouped: ", self.dict_non_grouped)
-            # print("self dict grouped: ", self.dict_grouped)
-            
-            # print("self machines assigned A: ", self.machines_assigned_A)
-            
-            machine_grouped_per_machine = defaultdict(list)
-            
-            counterA = 0
-            counterA1 = 0
-            counterB = 0
-            counterC = 0
-            for  key, value in self.dict_grouped.items():
-                if value > self.len_tests_modelA_not_grouped:
-                    counterA += 1
-                    machine = self.machines_assigned_A[value-2] 
-                    if machine == 1:
-                        counterA1 += 1
-                    # print("machine" , machine, counterA, key, counterA1)## strats from -2: 1 from tests start at 1 + 1 from additional shift
-                    # print("machine: ", machine, key)
-                    machine_grouped_per_machine[machine].append(key)
-            
-            start_grouped_per_machine = defaultdict(list)
-            
-            for key, value in self.dict_grouped.items():
-                if value > self.len_tests_modelA_not_grouped:
-                    counterB += 1
-                    start_time = self.start_times_A[value-2]
-                    start_grouped_per_machine[start_time].append(key)
-                
-            duration_grouped_per_machine = defaultdict(list)
-            
-            for key, value in self.dict_grouped.items():
-                
-                print("value: ", value)
-                if value > self.len_tests_modelA_not_grouped:
-                    counterC += 1
-                    duration = self.durations_modelA[value-2]
-                    duration_grouped_per_machine[duration].append(key)
-                    
-                    
-            print("counter A: ", counterA)
-            print("counter B: ", counterB)
-            print("counter C: ", counterC)
-            
-            ### two slots occur in the same machine xDDDDD
-            
-            # print("tests grouped per machine: ", machine_grouped_per_machine)
-            # print("dict grouped: ", self.grouped_super_tests)
-            
-            # for key, value in self.grouped_super_tests.items():
-            #     print("key: ", key, len(value))
-                
-            for key, value in start_grouped_per_machine.items():
-                print("key: ", key, len(value))
-            
-            print("~~")
-            for key, value in duration_grouped_per_machine.items():
-                print("key: ", key, len(value))
-            
-            
-            print("~~~")
-            for key, value in machine_grouped_per_machine.items():
-                print("key: ", key, len(value))
-                
-            
-            # # print("start grouped per machine: ", start_grouped_per_machine)
-            # # print("duration grouped per machine: ", duration_grouped_per_machine)
-            
-            print("*"*50)
-            
-            counter = 0
-            for key, value in machine_grouped_per_machine.items():
-                
-                counter += len(value)
-                
-            print("COUNTER: ", counter)
-            
-            tasks_assignment_A = defaultdict(list)
-            
-            
-            for elem_start in start_grouped_per_machine.items():
-                for i in range(len(elem_start[1])):
-                    tasks_assignment_A[elem_start[1][i]] = [1, elem_start[0]]
-                    
-            for elem_machine in machine_grouped_per_machine.items():
-                for i in range(len(elem_machine[1])):
-                    tasks_assignment_A[elem_machine[1][i]][0] = elem_machine[0]
-            
-            
-            
-            print("self dict group:", self.grouped_super_tests)
-            
-            for key, value in self.grouped_super_tests.items():
-                
-                tests = list(value)
-                start_time = tasks_assignment_A[tests[0]][1]
-                
-                start_time_vec = [start_time for _ in range(len(tests))]
-                for i in range(1, len(tests)):
-                    start_time_vec[i] = start_time_vec[i-1] + self.durations[tests[i-1]-1]
-                    
-                for i, test in enumerate(tests):
-                    tasks_assignment_A[test][1] = start_time_vec[i]
-                    
-                    
-            for i in range(self.len_tests_modelA_not_grouped):
-                tasks_assignment_A[self.dict_undo_non_grouped[i+1]] = [self.machines_assigned_A[i], self.start_times_A[i]]
-                
-                
-            print("len tasks assignment A: ", len(tasks_assignment_A))
-            
-            
-            self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_B}
-            
-            print("len tasks assignment: ", len(self.tasks_assignment))
-                
-            self.total_makespan = max([self.tasks_assignment[task][1] + self.durations[task-1] for task in self.tasks_assignment])
-            
-            print(len(tasks_assignment_A))
-        
+
+        tasks_assignment_A = {self.tests_modelA[i]: (self.machines_assigned_A[i], self.start_times_A[i]) for i in range(self.num_tests_modelA)}
+        self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_B}
+        self.total_makespan = max([self.tasks_assignment[task][1] + self.durations[task-1] for task in self.tasks_assignment])
         
         
         ##! check if the solution is has the minimum makespan available
@@ -1006,33 +526,23 @@ class Problem:
 
 
 
-    def create_plot_file(self):
+    def crete_plot_file(self):
         
-        # if self.num_tests < 500:
-        #     tasks_data = {task: (self.tasks_assignment[task][0], self.tasks_assignment[task][1], self.durations[task-1], self.resources[task-1]) for task in self.tasks_assignment}
-        # else:
-        #     tasks_data = {task: (self.tasks_assignment[task][0], self.tasks_assignment[task][1], self.tests_duration_total_both_models[task-1]) for task in self.tasks_assignment}
-
         tasks_data = {task: (self.tasks_assignment[task][0], self.tasks_assignment[task][1], self.durations[task-1], self.resources[task-1]) for task in self.tasks_assignment}
 
         machines = [f"m{tasks_data[task][0]}" for task in tasks_data]
         start_times = [tasks_data[task][1] for task in tasks_data]
         durations = [tasks_data[task][2] for task in tasks_data]
         tasks = [f"t{task}" for task in tasks_data]
-    
         resources = [tasks_data[task][3] if tasks_data[task][3] != ['e']  else [''] for task in tasks_data]
         
         
         fig, ax = plt.subplots(figsize=(25, 25))
         
-        for i in range(len(machines)):
+        for i in range(len(self.machines)):
             ax.barh(machines[i], durations[i], left=start_times[i], align='center')
-            # if self.num_tests < 500:
-            #     ax.text(start_times[i] + durations[i]/ 2, machines[i], f"{tasks[i]} - {resources[i]}", va='center', ha='center', color='black', fontweight='bold', fontsize=5)
-            # else:
-            #     ax.text(start_times[i] + durations[i]/ 2, machines[i], f"{tasks[i]}", va='center', ha='center', color='black', fontweight='bold', fontsize=5)
-                
             ax.text(start_times[i] + durations[i]/ 2, machines[i], f"{tasks[i]} - {resources[i]}", va='center', ha='center', color='black', fontweight='bold', fontsize=5)
+        
         
         ax.set_xlabel('Time')
         ax.set_ylabel('Machines')
@@ -1054,9 +564,7 @@ if __name__ == "__main__":
     time_start = time.time()
 
     ## set the initial value for the hyperparameter
-    # nb_max_non_ordering = 6
-    nb_max_non_ordering = 1
-    
+    nb_max_non_ordering = 6
     
     max_time = 60 * 5 # 5 minutes
     total_make_span = 0
@@ -1066,8 +574,6 @@ if __name__ == "__main__":
     
     time_partial = time.time()
     
-    counter = 0
-    
     ##! iterate over the hyperparameter till the solution is not further improved
     while time_partial > max_time:
         
@@ -1075,17 +581,7 @@ if __name__ == "__main__":
         
         problem = Problem.parse_instance()
         problem.read_input_data()
-        
-        problem.input_data_modelA_init()
-        
-        if problem.num_tests < 500:
-            problem.input_data_modelA_middle_up_to_100()
-        else:
-            problem.input_data_modelA_middle_500()
-            
-        problem.input_data_modelA_end(nb_max_non_ordering=nb_max_non_ordering)
-        
-        # problem.input_data_modelA(nb_max_non_ordering=nb_max_non_ordering)
+        problem.input_data_modelA(nb_max_non_ordering=nb_max_non_ordering)
         
         print("Nb elements in model A: ", problem.num_tests_modelA)
         print("Time elapsed: ", round((time_partial - time_start)/60,3), " mins")
@@ -1100,7 +596,7 @@ if __name__ == "__main__":
         print("Is solution:", problem.checker_solution())
         
         problem.create_output_file()
-        problem.create_plot_file()
+        problem.crete_plot_file()
         
         time_partial = time.time()
         
@@ -1120,8 +616,5 @@ if __name__ == "__main__":
             break
         
         nb_max_non_ordering += 1
-        
-        if counter == 0:
-            break
         
     print("Total time elapsed: ", round((time.time() - time_start)/60,3), " mins")
