@@ -616,3 +616,5 @@ if __name__ == "__main__":
             break
         
         nb_max_non_ordering += 1
+        
+    print("Total time elapsed: ", round((time.time() - time_start)/60,3), " mins")
