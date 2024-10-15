@@ -126,8 +126,8 @@ class Problem:
                 tests_modelA_grouped.append(test)
             else:
                 tests_modelA_not_grouped.append(test)
-                
-                
+        
+        
         grouped_super_tests = defaultdict(set)
         
         for test in tests_modelA_grouped:
@@ -206,6 +206,11 @@ class Problem:
         
         self.tests_modelA = [i+1 for i in range(self.num_tests) if self.have_resources[i] == True]
         self.num_tests_modelA = len(self.tests_modelA)
+        
+        
+        print("*"*30)
+        print("num tests model A: ", self.num_tests_modelA)
+        print()
         
         ## convert the tests to a dictionary to have the index of the test (to start from 1)
         self.dictionaire_tests_modelA = {self.tests_modelA[i]:i+1  for i in range(self.num_tests_modelA)}
@@ -412,6 +417,11 @@ class Problem:
     
     
     
+    
+    
+    
+    
+    
     def load_modelA(self, new_baseline, solver_name="cbc"):
         
         ## load the model and the solver
@@ -432,7 +442,6 @@ class Problem:
         ##! baseline makespan
         baseline = sum(self.durations_modelA)
         if new_baseline < baseline and new_baseline > 0:
-            
             baseline = new_baseline
         
         instance["num_makespan"] = baseline
@@ -471,6 +480,7 @@ class Problem:
     ##! for the second part of the problem, instead of using the minizinc model, we will use a greedy algorithm
     ##! assigning for each the task the machine that has that has the slot earlier available, it is allowed and obeys the restrictions
     def gready_algorithm_modelB(self):
+        
         
         ## list tests with machine restrictions and not included in model A
         if self.num_tests < 500:
@@ -584,7 +594,7 @@ class Problem:
             for slot in slots_to_add:
                 ### after the assignment, we add the slots back to the heap
                 heapq.heappush(machine_availability, slot)
-
+        
         if self.num_tests < 500:
             
             tasks_assignment_A = {self.tests_modelA[i]: (self.machines_assigned_A[i], self.start_times_A[i]) for i in range(self.num_tests_modelA)}
@@ -640,6 +650,9 @@ class Problem:
         # print()
         
         return self.total_makespan
+    
+    
+    
     
     
     def checker_solution(self):
@@ -770,9 +783,6 @@ if __name__ == "__main__":
     counter_same_makespan = 0
     counter_nb_zero = 0
     
-    counter_t500_larger = 0
-    thereshold_t500_larger = 65 ##! 65 tests that cannot overlap in time
-    
     time_partial = time.time()
     
     ##! iterate over the hyperparameter till the solution is not further improved
@@ -790,8 +800,7 @@ if __name__ == "__main__":
         elif problem.num_tests == 500 and counter_nb_zero == 0:
             nb_max_non_ordering = 2
             counter_nb_zero = 1
-        
-        
+            
         print("-"*30)
         print("Model with nb_max_non_ordering: ", nb_max_non_ordering)
         
@@ -799,19 +808,18 @@ if __name__ == "__main__":
             problem.input_data_modelA_middle_up_to_100()
         else:
             problem.input_data_modelA_middle_500()
-        
+            
         problem.input_data_modelA_end(nb_max_non_ordering=nb_max_non_ordering)
         
+        # problem.input_data_modelA(nb_max_non_ordering=nb_max_non_ordering)
         
-        if problem.num_tests == 500 and problem.num_tests_modelA > thereshold_t500_larger and counter_t500_larger == 0:
-            ##! ensure that the larger t500 tests have at least one solution
-            
-            problem.baseline_solution_modelA()
-            nb_max_non_ordering = 0
-            counter_t500_larger = 1
-        else:
-            problem.load_modelA(total_make_span)
+        print("Nb elements in model A: ", problem.num_tests_modelA)
+        print("Time elapsed: ", round((time_partial - time_start)/60,3), " mins")
+        print()
         
+        problem.load_modelA(total_make_span)
+        
+        time_partial = time.time()
         
         now_makespan = problem.gready_algorithm_modelB()
         
@@ -821,11 +829,6 @@ if __name__ == "__main__":
         problem.create_plot_file()
         
         time_partial = time.time()
-        
-        print("Nb elements in model A: ", problem.num_tests_modelA)
-        print("Time elapsed: ", round((time_partial - time_start)/60,3), " mins")
-        print()
-        
         
         old_make_span = total_make_span
         total_make_span = now_makespan
@@ -840,10 +843,7 @@ if __name__ == "__main__":
         if nb_max_non_ordering > problem.num_tests_modelA or counter_same_makespan == 2:
             break
         
-        if nb_max_non_ordering < 10:
-            nb_max_non_ordering += 2
-        else:
-            nb_max_non_ordering += 1
+        nb_max_non_ordering += 1
         
         
     print("Total time elapsed: ", round((time.time() - time_start)/60,3), " mins")
