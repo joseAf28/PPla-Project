@@ -537,6 +537,13 @@ class Problem:
                 machine_availability.append((0, max_machine_time, i))
         
         
+        print("machine availability BEGIN: ", machine_availability)
+        
+        
+        print("--"*40)
+        print()
+        
+        
         ## list of tasks, its id, duration and machines allowed that are up to be assigned
         tasks_modelB = [ {'id': number, 'duration': duration, 'machines': machines}\
             for number, duration, machines in zip(self.tests_modelB, self.durations_modelB, self.machines_allowed_modelB)]
@@ -593,6 +600,12 @@ class Problem:
                 heapq.heappush(machine_availability, slot)
 
 
+        print("machine availability: ", machine_availability)
+        print("tasks assignment B: ", tasks_assignment_B)
+        
+        print("*"*50)
+
+
         if self.num_tests < 500:
             
             tasks_assignment_A = {self.tests_modelA[i]: (self.machines_assigned_A[i], self.start_times_A[i]) for i in range(self.num_tests_modelA)}
@@ -639,13 +652,95 @@ class Problem:
             print("makespan Total: ", self.total_makespan)
             print("baseline makespan: ", sum(self.durations_modelA))
             
+            ##! improve the solution
+            
+            ##! internal gaps
+            print("machine availability: ", machine_availability)
+            
+            frontier_gaps = [gap for gap in machine_availability if gap[1] == max_machine_time]
+            
+            tupple_makespan = [element for element in frontier_gaps if element[0] == self.total_makespan][0]
+            
+            print("tupple makespan: ", tupple_makespan)
+            
+            tasks_frontier = []
+            machine_frontier = []
+            time_limit_frontier = []
+            
+            for task in tasks_assignment_B:
+                for gap in frontier_gaps:
+                    if tasks_assignment_B[task][0] == gap[2]:
+                        if tasks_assignment_B[task][1] + self.durations[task-1] == gap[0]:
+                            tasks_frontier.append(task)
+                            machine_frontier.append(gap[2])
+                            time_limit_frontier.append(gap[0])
+                            
+            print("tasks frontier: ", tasks_frontier)
+            print("machine frontier: ", machine_frontier)
+            
+            
+            index_task_makespan = machine_frontier.index(tupple_makespan[2])
+            duration_task_makespan = self.durations[tasks_frontier[index_task_makespan]-1]
+            task_makespan = tasks_frontier[index_task_makespan]
+            machine_makespan = machine_frontier[index_task_makespan]
+            
+            print("task makespan: ", tasks_frontier[index_task_makespan])
+            
+            machine_frontier_without_makespan = machine_frontier[:index_task_makespan] + machine_frontier[index_task_makespan+1:]
+            tasks_frontier_without_makespan = tasks_frontier[:index_task_makespan] + tasks_frontier[index_task_makespan+1:]
+            time_limit_frontier_without_makespan = time_limit_frontier[:index_task_makespan] + time_limit_frontier[index_task_makespan+1:]
+            
+            ##! check if an exchange of tasks can improve the makespan and store the information a new_makespan list to later choose the better
+            new_makespan_list = []
+            
+            for i in range(len(tasks_frontier_without_makespan)):
+                # print("machine allowed: ", self.machines_allowed[tasks_frontier_without_makespan[i]-1])
+                # print("machine frontier: ", machine_frontier)
+                
+                # print("checker:" , machine_makespan in list(self.machines_allowed[tasks_frontier_without_makespan[i]-1]))
+                
+                if machine_makespan in list(self.machines_allowed[tasks_frontier_without_makespan[i]-1]):
+                    new_makespan0 = self.total_makespan - duration_task_makespan + self.durations[tasks_frontier_without_makespan[i]-1]
+                    new_makespan1 = time_limit_frontier_without_makespan[i] - self.durations[tasks_frontier_without_makespan[i]-1] + duration_task_makespan
+                        
+                    new_makespan = max(new_makespan0, new_makespan1)
+                    new_makespan_list.append((tasks_frontier_without_makespan[i], time_limit_frontier_without_makespan[i], machine_frontier_without_makespan[i], i))
+                        
+            
+            chosen_change_minimal_makespan = min(new_makespan_list, key=lambda x: x[0])
+            
+            # tasks_assignment_B[task_makespan] = (chosen_change_minimal_makespan[2], time_limit_frontier_without_makespan[chosen_change_minimal_makespan[3]] - self.durations[chosen_change_minimal_makespan[0]-1])
+            # tasks_assignment_B[chosen_change_minimal_makespan[0]] = (tupple_makespan[2], self.total_makespan - duration_task_makespan)
+            
+            
+            # self.tasks_assignment = {**tasks_assignment_A, **tasks_assignment_B}
+            # self.total_makespan = max([self.tasks_assignment[task][1] + self.durations[task-1] for task in self.tasks_assignment])
+            
+            print(" total makespan after improvement: ", self.total_makespan)
+            # print("totla makespan before improvement: ", chosen_change_minimal_makespan[0])
+            
+            print("tasks assignment B chosen: ", tasks_assignment_B[chosen_change_minimal_makespan[0]])
+            print("tasks assignment B makespan: ", tasks_assignment_B[task_makespan])
+            
+            print("chosen change minimal makespan: ", chosen_change_minimal_makespan)
+            # print("tasks frontier without makespan: ", task_makespan)
+            
+            # print()
+            # print("frontier gaps: ", frontier_gaps)
+            # print("tasks frontier: ", new_makespan_list)
+            
+            
+            
+            
         else: 
             print("best solution garanteed")
             print("makespan A: ", self.makespan_A)
             print("makespan Total: ", self.total_makespan)
             print("baseline makespan: ", sum(self.durations_modelA))
         
-    
+        
+        # print("final tasks' assignment: ", self.tasks_assignment)
+        # print()
         
         return self.total_makespan
     
@@ -778,6 +873,7 @@ if __name__ == "__main__":
     
     time_partial = time.time()
     
+    counter_extra = 0
     
     ##! iterate over the hyperparameter till the solution is not further improved
     while time_partial > max_time:
@@ -789,7 +885,7 @@ if __name__ == "__main__":
         
         ## set the initial value for the hyperparameter based on the number of tests
         if problem.num_tests < 500 and counter_nb_zero == 0:
-            nb_max_non_ordering = 4
+            nb_max_non_ordering = 6
             counter_nb_zero = 1
         elif problem.num_tests == 500 and counter_nb_zero == 0:
             nb_max_non_ordering = 2
@@ -848,7 +944,10 @@ if __name__ == "__main__":
             nb_max_non_ordering += 2
         else:
             nb_max_non_ordering += 1
-
+        
+            
+        # if counter_extra == 0:
+        #     break
         
         
     print("Total time elapsed: ", round((time.time() - time_start)/60,3), " mins")
