@@ -1,6 +1,7 @@
 import sys 
 import re                       # for regular expressions to parse the input data
 from minizinc import Instance, Model, Solver
+from datetime import timedelta  # for the time limit in the minizinc model
 import time
 import heapq                    # for the heap data structure used in the greedy algorithm
 from itertools import groupby   # for grouping the data in the greedy algorithm
@@ -16,15 +17,15 @@ class Problem:
     def __init__(self, input_file_name, output_file_name):
         self.input_file_name = input_file_name
         self.output_file_name = output_file_name
-        
-        
+    
+    
     @staticmethod
     def parse_instance():
         # Check if the correct number of arguments is provided
         if len(sys.argv) != 3:
             print(f"Usage: python3.11 {sys.argv[0]} <input-file-name> <output-file-name>")
             sys.exit(1)
-
+        
         # Get the input and output file names from the command-line arguments
         input_file_name = sys.argv[1]
         output_file_name = sys.argv[2]
@@ -390,7 +391,7 @@ class Problem:
                 self.pairs_ordering_same_resource_with_superpose.append(pair)
         
         
-        ##! Bu pre-assigning the machines to the tests with the heursitic of miniming the use of the overlapping tasks in the same machine condition in
+        ##! By pre-assigning the machines to the tests with the heursitic of miniming the use of the overlapping tasks in the same machine condition in
         ##! in Minizinc model, we break further simmetries and cut further the search space
         
         self.machines_pre_assigned = [0 for _ in range(self.num_tests_modelA)]
@@ -412,7 +413,7 @@ class Problem:
     
     
     
-    def load_modelA(self, new_baseline, solver_name="cbc"):
+    def load_modelA(self, new_baseline, time_limit,solver_name="cbc"):
         
         ## load the model and the solver
         model = Model('./model/modelAFinal.mzn')
@@ -444,12 +445,19 @@ class Problem:
         instance["nb_pairs_ordering_same_resource_with_superpose"] = len(self.pairs_ordering_same_resource_with_superpose)
         instance["pairs_ordering_same_resource_with_superpose"] = self.pairs_ordering_same_resource_with_superpose
         
-        ## solve the model
-        result = instance.solve()
         
-        self.makespan_A = result["makespan"]
-        self.machines_assigned_A = result["machine_assigned"]
-        self.start_times_A = result["start"]
+        ## solve the model with time limit
+        time_limit_minizinc = timedelta(seconds=time_limit)
+        result = instance.solve(timeout=time_limit_minizinc)
+        
+        try:
+            self.makespan_A = result["makespan"]
+            self.machines_assigned_A = result["machine_assigned"]
+            self.start_times_A = result["start"]
+        except:
+            print(f"Given the time limit, {round(time_limit,3)} secs, the model did not find a solution for the actual value hyperparameter!")
+            print(f"Best solution found in file {self.output_file_name}.txt")
+            quit()
     
     
     
@@ -723,7 +731,6 @@ class Problem:
                 output_file.write(f"{num_tasks}, {tasks_machine})\n")
         
         print(f"Output file created: {self.output_file_name}")
-        print()
 
 
 
@@ -747,15 +754,14 @@ class Problem:
         ax.set_xlabel('Time')
         ax.set_ylabel('Machines')
         ax.set_title('Machine-Test Schedule')
-
-        limit_max = max(start_times) + max(durations)
-        ax.set_xlim(0, limit_max)
+        
+        limit_max = max(start_times[i] + durations[i] for i in range(len(machines)))
+        ax.set_xlim(0, limit_max + 100)
         
         plt.tight_layout()
         plt.savefig(self.output_file_name.split('.')[0] + '.png')
         
         print(f"Plot file created: {self.output_file_name.split('.')[0] + '.png'}")
-        print()
 
 
 
@@ -766,21 +772,22 @@ if __name__ == "__main__":
     ##e hyperparameter variable
     nb_max_non_ordering = 0
     
-    max_time = 60 * 5 # 5 minutes
+    max_time = 60 * 4.6 # 4.6 minutes in secs
+    correction_time = 3 # 3 secs
+    
     total_make_span = 0
     old_make_span = 0
     
-    counter_same_makespan = 0
+    
     counter_nb_zero = 0
     
     counter_t500_larger = 0
     thereshold_t500_larger = 65 ##! 65 tests that cannot overlap in time
     
-    time_partial = time.time()
-    
+    time_partial = time.time() - time_start
     
     ##! iterate over the hyperparameter till the solution is not further improved
-    while time_partial > max_time:
+    while time_partial < max_time:
         
         problem = Problem.parse_instance()
         problem.read_input_data()
@@ -814,41 +821,39 @@ if __name__ == "__main__":
             nb_max_non_ordering = 0
             counter_t500_larger = 1
         else:
-            problem.load_modelA(total_make_span)
+            time_limit = max_time - (time.time() - time_start) - correction_time
+            
+            if time_limit < 0:
+                time_limit = 1e-3 ##! 1 ms
+            
+            problem.load_modelA(total_make_span, time_limit)
         
         
         now_makespan = problem.gready_algorithm_modelB()
         
+        print(f"Remaining time to end: {round((max_time - (time.time() - time_start) - correction_time)/60, 3)} mins")
+        
         # print("Is solution:", problem.checker_solution())
         
+        print()
         problem.create_output_file()
         problem.create_plot_file()
-        
-        time_partial = time.time()
-        
-        print("Nb elements in model A: ", problem.num_tests_modelA)
-        print("Time elapsed: ", round((time_partial - time_start)/60,3), " mins")
         print()
         
-        
-        old_make_span = total_make_span
         total_make_span = now_makespan
-
         
-        if old_make_span == total_make_span:
-            counter_same_makespan += 1
-            
-
-        ##! convergence: if the same value for makespan is obtained twice, we stop the search
-        ##! or the maximum number of tests in model A has been reached and we the solution cannot be further improved
-        if nb_max_non_ordering > problem.num_tests_modelA or counter_same_makespan == 2:
+        ##! break the loop if the next solution passes the time limit. However, there was still room for improvement 
+        ###! (hyperparameter is smaller than the nb total of tests from part A)
+        ##! or break the loop if the the maximum number of tests in model A has been reached and the solution cannot be further improved
+        if nb_max_non_ordering > problem.num_tests_modelA:
             break
         
+        
+        ##! update the hyperparameter
         if nb_max_non_ordering < 10:
             nb_max_non_ordering += 2
         else:
             nb_max_non_ordering += 1
-
         
         
-    print("Total time elapsed: ", round((time.time() - time_start)/60,3), " mins")
+        time_partial = time.time() - time_start
