@@ -110,72 +110,6 @@ class Problem:
     
     
     
-    def input_data_modelA_500(self):
-        
-        ###! Input data for model A
-        self.tests_modelA_1 = [i+1 for i in range(self.num_tests) if self.have_resources[i] == True]
-        self.num_tests_modelA_1 = len(self.tests_modelA_1)
-        
-        ##? heuristic for t500 tests - works better than simply packing all the global tests in the same machine and 
-        ##? then distribute the remaining tests among the machines with gaps
-        
-        tests_modelA_not_grouped = []
-        tests_modelA_grouped = []
-        
-        for test in self.tests_modelA_1:
-            if len(self.machines_allowed[test-1]) == self.num_machines:
-                tests_modelA_grouped.append(test)
-            else:
-                tests_modelA_not_grouped.append(test)
-                
-                
-        grouped_super_tests = defaultdict(set)
-        
-        for test in tests_modelA_grouped:
-            resources = frozenset(self.resources[test-1])
-            grouped_super_tests[resources].add(test)
-        
-        
-        grouped_super_tests_duration = [sum(self.durations[i-1] for i in tests) for resources, tests in grouped_super_tests.items()]
-        grouped_super_tests_machines = [setAllMachines for _ in range(len(grouped_super_tests))]
-        grouped_super_tests_resources = [set(resources) for resources, tests in grouped_super_tests.items()]
-        
-        not_grouped_tests_duration = [self.durations[i-1] for i in tests_modelA_not_grouped]
-        not_grouped_tests_machines = [self.machines_allowed[i-1] for i in tests_modelA_not_grouped]
-        not_grouped_tests_resources = [set(self.resources[i-1]) for i in tests_modelA_not_grouped]
-        
-        tests_modelA_grouped = [len(tests_modelA_not_grouped)+i+1 for i in range(len(grouped_super_tests))]
-        
-        dict_non_grouped = {tests_modelA_not_grouped[i]:i+1 for i in range(len(tests_modelA_not_grouped))}
-        dict_grouped = {}
-        
-        for i, resources in enumerate(grouped_super_tests):
-            for test in grouped_super_tests[resources]:
-                dict_grouped[test] = len(tests_modelA_not_grouped) + i + 1
-        
-        dict_total = {**dict_non_grouped, **dict_grouped}
-        
-        resources_allowed_modelA = [{dict_total[j] for j in self.resources_allowed[i]} for i in range(self.num_resources)]
-        
-        
-        
-        self.tests_modelA = not_grouped_tests_resources + grouped_super_tests_resources
-        self.num_tests_modelA = len(self.tests_modelA)
-        
-        self.durations_modelA = not_grouped_tests_duration + grouped_super_tests_duration
-        self.machines_allowed_modelA = not_grouped_tests_machines + grouped_super_tests_machines
-        
-        self.resources_effective_modelA = [set() for _ in range(self.num_resources)]
-        for i in range(len(self.tests_resources_total)):
-            for j in range(self.num_resources):
-                if f'r{j+1}' in self.tests_resources_total[i]:
-                    self.resources_allowed_total[j].add(i+1)
-        
-        self.num_resources_effective = len(self.resources_effective_modelA)
-        
-        #####? ends here the heuristic
-    
-    
     def input_data_modelA_init(self):
         ##! Input data for all the tests
         dictionaire_machines = {f"m{i+1}": i+1 for i in range(self.num_machines)}
@@ -382,7 +316,6 @@ class Problem:
         self.pairs_ordering_same_resource_with_superpose = []
         queue_aux = list(set([pair[0] for pair in self.unique_pairs_allowed_to_superpose]))
         
-        # print("queue aux: ", queue_aux)
         
         for pair in pairs_ordering_same_resource:
             if pair[0] in queue_aux or pair[1] in queue_aux:
@@ -642,16 +575,16 @@ class Problem:
         
         ##! check if the solution is has the minimum makespan available
         if self.total_makespan > self.makespan_A:
-            print("best solution NOT garanteed")
-            print("makespan A: ", self.makespan_A)
+            print("best solution NOT guaranteed")
+            print("makespan part A: ", self.makespan_A)
             print("makespan Total: ", self.total_makespan)
-            print("baseline makespan: ", sum(self.durations_modelA))
+            # print("baseline makespan: ", sum(self.durations_modelA))
             
         else: 
-            print("best solution garanteed")
-            print("makespan A: ", self.makespan_A)
+            print("best solution guaranteed")
+            print("makespan part A: ", self.makespan_A)
             print("makespan Total: ", self.total_makespan)
-            print("baseline makespan: ", sum(self.durations_modelA))
+            # print("baseline makespan: ", sum(self.durations_modelA))
         
     
         
@@ -772,7 +705,7 @@ if __name__ == "__main__":
     ##e hyperparameter variable
     nb_max_non_ordering = 0
     
-    max_time = 60 * 4.6 # 4.6 minutes in secs
+    max_time = 60 * 4.6 # 4.6 minutes in secs (0.4 min buffer time for solver to finish)
     correction_time = 3 # 3 secs
     
     total_make_span = 0
@@ -803,8 +736,8 @@ if __name__ == "__main__":
             counter_nb_zero = 1
         
         
-        print("-"*30)
-        print("Model with nb_max_non_ordering: ", nb_max_non_ordering)
+        print("-"*40)
+        print("Model with hyperparameter: ", nb_max_non_ordering)
         
         if problem.num_tests < 500:
             problem.input_data_modelA_middle_up_to_100()
@@ -823,9 +756,6 @@ if __name__ == "__main__":
         else:
             time_limit = max_time - (time.time() - time_start) - correction_time
             
-            if time_limit < 0:
-                time_limit = 1e-3 ##! 1 ms
-            
             problem.load_modelA(total_make_span, time_limit)
         
         
@@ -833,11 +763,12 @@ if __name__ == "__main__":
         
         print(f"Remaining time to end: {round((max_time - (time.time() - time_start) - correction_time)/60, 3)} mins")
         
+        
         # print("Is solution:", problem.checker_solution())
         
         print()
         problem.create_output_file()
-        problem.create_plot_file()
+        # problem.create_plot_file()
         print()
         
         total_make_span = now_makespan

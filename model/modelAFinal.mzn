@@ -77,6 +77,5 @@ constraint makespan = max([start[i] + durations[i] | i in 1..num_tests]);
 
 constraint makespan <= num_makespan;
 
-
 % Objective: Minimize the makespan
 solve minimize makespan;
