@@ -715,7 +715,7 @@ if __name__ == "__main__":
     counter_nb_zero = 0
     
     counter_t500_larger = 0
-    thereshold_t500_larger = 65 ##! 65 tests that cannot overlap in time
+    thereshold_t500_larger = 65 ## 65 tests that cannot overlap in time
     
     time_partial = time.time() - time_start
     
